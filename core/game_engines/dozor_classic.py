@@ -89,7 +89,7 @@ class DozorClassic(GameEngine):
 
     @staticmethod
     def obtain_session(config):
-        url = 'http://classic.dzzzr.ru/%s/API/login.php' % config.city
+        url = 'https://classic.dzzzr.ru/%s/API/login.php' % config.city
         try:
             response = requests.get(
                 url,
@@ -132,7 +132,7 @@ class DozorClassic(GameEngine):
 
     def __init__(self, game):
         super().__init__(game)
-        self.link = 'http://classic.dzzzr.ru/%s/go/' % self.game.city
+        self.link = 'https://classic.dzzzr.ru/%s/go/' % self.game.city
         self._game_data = None
 
     @property

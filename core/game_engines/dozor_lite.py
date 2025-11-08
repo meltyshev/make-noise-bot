@@ -98,7 +98,7 @@ class DozorLite(GameEngine):
 
     def __init__(self, game):
         super().__init__(game)
-        self.link = 'http://lite.dzzzr.ru/%s/go/?pin=%s' % (
+        self.link = 'https://lite.dzzzr.ru/%s/go/?pin=%s' % (
             self.game.city,
             self.game.pincode
         )

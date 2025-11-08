@@ -38,7 +38,7 @@ class DozorClassicPrequel(GameEngine):
 
     @staticmethod
     def obtain_session(config):
-        url = 'http://classic.dzzzr.ru/%s/API/login.php' % config.city
+        url = 'https://classic.dzzzr.ru/%s/API/login.php' % config.city
         try:
             response = requests.get(
                 url,
@@ -83,7 +83,7 @@ class DozorClassicPrequel(GameEngine):
 
     def __init__(self, game):
         super().__init__(game)
-        self.link = 'http://classic.dzzzr.ru/%s/?section=anons&league=%s' % (self.game.city, self.game.league)
+        self.link = 'https://classic.dzzzr.ru/%s/?section=anons&league=%s' % (self.game.city, self.game.league)
         self._headers={
             'Cookie': 'dozorSiteSession=%s' % self.game.session,
             'Referer': self.link,
