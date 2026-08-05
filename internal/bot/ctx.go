@@ -10,6 +10,7 @@ import (
 
 	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/texts"
+	"github.com/meltyshev/make-noise-bot/internal/tgsend"
 )
 
 // Ctx bundles one incoming message with everything a handler needs.
@@ -73,12 +74,9 @@ func (c *Ctx) Replyf(format string, args ...any) {
 }
 
 func (c *Ctx) ReplyHTML(text string) {
-	c.send(&tgbot.SendMessageParams{
-		ChatID:          c.ChatID(),
-		Text:            text,
-		ParseMode:       models.ParseModeHTML,
-		ReplyParameters: c.replyParams(),
-	})
+	if err := tgsend.HTML(c.ctx, c.app.tg, c.ChatID(), text, c.replyParams()); err != nil {
+		c.app.reportError(fmt.Errorf("send html: %w", err))
+	}
 }
 
 // ReplyAlways quotes the triggering message even in private chats.

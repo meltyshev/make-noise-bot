@@ -52,8 +52,7 @@ func TestLiteLoadAndSnapshot(t *testing.T) {
 	if level := snap.LevelNumber(); level == nil || *level != 7 {
 		t.Errorf("LevelNumber = %v, want 7", level)
 	}
-	// Every text node is trimmed, so the space before inline tags is lost.
-	if got, want := snap.Question(), "Вопрос<b>тут</b>"; got != want {
+	if got, want := snap.Question(), "Вопрос <b>тут</b>"; got != want {
 		t.Errorf("Question = %q, want %q", got, want)
 	}
 	// 3725 seconds = 01:02:05; 8 codes are enough out of 10.
@@ -62,7 +61,7 @@ func TestLiteLoadAndSnapshot(t *testing.T) {
 	}
 
 	hintNumber, hintText := snap.Hint()
-	if hintNumber != 2 || hintText != "Подсказка<b>два</b>" {
+	if hintNumber != 2 || hintText != "Подсказка <b>два</b>" {
 		t.Errorf("Hint = (%d, %q)", hintNumber, hintText)
 	}
 

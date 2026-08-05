@@ -11,11 +11,11 @@ import (
 	"time"
 
 	tgbot "github.com/go-telegram/bot"
-	"github.com/go-telegram/bot/models"
 
 	"github.com/meltyshev/make-noise-bot/internal/game"
 	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/texts"
+	"github.com/meltyshev/make-noise-bot/internal/tgsend"
 )
 
 type Updater struct {
@@ -158,12 +158,14 @@ func (u *Updater) sendToFirst(ctx context.Context, subscribers []int64, text str
 }
 
 func (u *Updater) sendTo(ctx context.Context, chatID int64, text string, html bool) {
-	params := &tgbot.SendMessageParams{ChatID: chatID, Text: text}
+	var err error
 	if html {
-		params.ParseMode = models.ParseModeHTML
+		err = tgsend.HTML(ctx, u.tg, chatID, text, nil)
+	} else {
+		_, err = u.tg.SendMessage(ctx, &tgbot.SendMessageParams{ChatID: chatID, Text: text})
 	}
 
-	if _, err := u.tg.SendMessage(ctx, params); err != nil {
+	if err != nil {
 		if errors.Is(err, tgbot.ErrorForbidden) {
 			u.unsubscribe(chatID)
 			return

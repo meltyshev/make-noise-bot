@@ -16,6 +16,8 @@ const (
 
 	CancelDone    = "Команда /%s отменена."
 	CancelNothing = "Нет текущих команд."
+
+	HTMLFallback = "Не удалось разобрать разметку, отправляю как есть:"
 )
 
 // Permissions.

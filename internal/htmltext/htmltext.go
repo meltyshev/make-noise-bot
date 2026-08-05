@@ -7,28 +7,47 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	xhtml "golang.org/x/net/html"
 )
 
 var (
-	spacesRe           = regexp.MustCompile(` +`)
-	spacesAfterNLRe    = regexp.MustCompile(`\n +`)
-	extraNewlinesRe    = regexp.MustCompile(`\n\n\n+`)
-	trailingBackslashQ = `\"`
+	whitespaceRe    = regexp.MustCompile(`\s+`)
+	multiSpaceRe    = regexp.MustCompile(` {2,}`)
+	spacesAfterNLRe = regexp.MustCompile(`\n +`)
+	spacesBeforeNL  = regexp.MustCompile(` +\n`)
+	extraNewlinesRe = regexp.MustCompile(`\n\n\n+`)
+	tagRe           = regexp.MustCompile(`<[^>]*>`)
 )
 
+// Inline tags are normalized to the canonical Telegram set.
+var inlineTags = map[string]string{
+	"b": "b", "strong": "b",
+	"i": "i", "em": "i",
+	"u": "u", "ins": "u",
+	"s": "s", "strike": "s", "del": "s",
+	"code": "code",
+}
+
+type openTag struct {
+	name string
+	raw  string
+}
+
 // Convert renders an HTML fragment as Telegram-HTML text, resolving relative
-// URLs against baseURL.
+// URLs against baseURL. The output always has balanced tags, whatever the
+// input looks like.
 func Convert(fragment, baseURL string) string {
 	var (
 		b          strings.Builder
+		stack      []openTag
 		hideOutput bool
 	)
 
 	base, _ := url.Parse(baseURL)
 	makeURL := func(path string) string {
-		path = strings.TrimSuffix(path, trailingBackslashQ)
+		path = strings.TrimSuffix(path, `\"`)
 		if base == nil {
 			return path
 		}
@@ -48,6 +67,37 @@ func Convert(fragment, baseURL string) string {
 		return "", false
 	}
 
+	open := func(t openTag) {
+		stack = append(stack, t)
+		b.WriteString(t.raw)
+	}
+	closeTop := func() {
+		top := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		b.WriteString("</" + top.name + ">")
+	}
+	// closeTag closes the named tag if it is open, temporarily closing and
+	// reopening anything above it so the output stays properly nested.
+	closeTag := func(name string) {
+		idx := -1
+		for i := len(stack) - 1; i >= 0; i-- {
+			if stack[i].name == name {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			return
+		}
+		reopen := append([]openTag{}, stack[idx+1:]...)
+		for len(stack) > idx {
+			closeTop()
+		}
+		for _, t := range reopen {
+			open(t)
+		}
+	}
+
 	z := xhtml.NewTokenizer(strings.NewReader(fragment))
 	for {
 		tt := z.Next()
@@ -65,15 +115,19 @@ func Convert(fragment, baseURL string) string {
 				if !hideOutput {
 					b.WriteString("\n")
 				}
-			case "b", "strong", "i", "em":
-				b.WriteString("<" + tok.Data + ">")
 			case "a":
 				if href, ok := attr(tok, "href"); ok {
-					b.WriteString(`<a href="` + html.EscapeString(makeURL(href)) + `">`)
+					// Telegram forbids nested links.
+					closeTag("a")
+					open(openTag{name: "a", raw: `<a href="` + html.EscapeString(makeURL(href)) + `">`})
 				}
 			case "img":
 				if src, ok := attr(tok, "src"); ok {
 					b.WriteString(" " + html.EscapeString(makeURL(src)) + " ")
+				}
+			default:
+				if name, ok := inlineTags[tok.Data]; ok {
+					open(openTag{name: name, raw: "<" + name + ">"})
 				}
 			}
 
@@ -93,22 +147,227 @@ func Convert(fragment, baseURL string) string {
 				hideOutput = false
 			case "div", "p":
 				b.WriteString("\n")
-			case "b", "strong", "i", "em":
-				b.WriteString("</" + tok.Data + ">")
 			case "a":
-				b.WriteString("</a>")
+				closeTag("a")
+			default:
+				if name, ok := inlineTags[tok.Data]; ok {
+					closeTag(name)
+				}
 			}
 
 		case xhtml.TextToken:
 			if !hideOutput && tok.Data != "" {
-				text := strings.TrimSpace(spacesRe.ReplaceAllString(tok.Data, " "))
-				b.WriteString(html.EscapeString(text))
+				b.WriteString(html.EscapeString(whitespaceRe.ReplaceAllString(tok.Data, " ")))
 			}
 		}
 	}
 
-	text := strings.TrimSpace(b.String())
+	for len(stack) > 0 {
+		closeTop()
+	}
+
+	text := multiSpaceRe.ReplaceAllString(b.String(), " ")
 	text = spacesAfterNLRe.ReplaceAllString(text, "\n")
+	text = spacesBeforeNL.ReplaceAllString(text, "\n")
 	text = extraNewlinesRe.ReplaceAllString(text, "\n\n")
-	return text
+	return strings.TrimSpace(text)
+}
+
+// StripTags returns the plain text of a converted fragment.
+func StripTags(s string) string {
+	return html.UnescapeString(tagRe.ReplaceAllString(s, ""))
+}
+
+// Split cuts a converted fragment into parts of at most limit UTF-16 units
+// (Telegram counts message length that way), keeping tags balanced in every
+// part: open tags are closed at a cut and reopened in the next part. Cuts
+// prefer newlines, then spaces, and never land inside a tag or an entity.
+func Split(s string, limit int) []string {
+	if utf16Len(s) <= limit {
+		return []string{s}
+	}
+
+	var (
+		parts []string
+		cur   strings.Builder
+		open  []openTag
+	)
+	curLen := 0
+	prefixLen := 0
+
+	closersLen := func() int {
+		n := 0
+		for _, t := range open {
+			n += utf16Len("</" + t.name + ">")
+		}
+		return n
+	}
+
+	flush := func() {
+		part := cur.String()
+		var b strings.Builder
+		b.WriteString(part)
+		for i := len(open) - 1; i >= 0; i-- {
+			b.WriteString("</" + open[i].name + ">")
+		}
+		if strings.TrimSpace(StripTags(b.String())) != "" {
+			parts = append(parts, strings.TrimSpace(b.String()))
+		}
+
+		cur.Reset()
+		curLen = 0
+		for _, t := range open {
+			cur.WriteString(t.raw)
+			curLen += utf16Len(t.raw)
+		}
+		prefixLen = curLen
+	}
+
+	for _, tok := range tokenize(s) {
+		if tok.isTag {
+			tagLen := utf16Len(tok.raw)
+			if curLen+tagLen+closersLen() > limit && curLen > prefixLen {
+				flush()
+			}
+			cur.WriteString(tok.raw)
+			curLen += tagLen
+			if tok.closing {
+				for i := len(open) - 1; i >= 0; i-- {
+					if open[i].name == tok.name {
+						open = append(open[:i], open[i+1:]...)
+						break
+					}
+				}
+			} else {
+				open = append(open, openTag{name: tok.name, raw: tok.raw})
+			}
+			continue
+		}
+
+		text := tok.raw
+		for text != "" {
+			budget := limit - curLen - closersLen()
+			fit, rest := cutText(text, budget)
+			if fit == "" {
+				if curLen > prefixLen {
+					flush()
+					continue
+				}
+				// Pathological limit: force one rune to guarantee progress.
+				_, size := utf8.DecodeRuneInString(text)
+				fit, rest = text[:size], text[size:]
+			}
+			cur.WriteString(fit)
+			curLen += utf16Len(fit)
+			text = strings.TrimLeft(rest, " ")
+			if rest != "" && curLen > prefixLen {
+				flush()
+			}
+		}
+	}
+	flush()
+
+	if len(parts) == 0 {
+		return []string{strings.TrimSpace(s)}
+	}
+	return parts
+}
+
+type htmlToken struct {
+	raw     string
+	isTag   bool
+	name    string
+	closing bool
+}
+
+// tokenize scans converted output, where every "<" starts a real tag.
+func tokenize(s string) []htmlToken {
+	var out []htmlToken
+	for s != "" {
+		if s[0] == '<' {
+			end := strings.IndexByte(s, '>')
+			if end < 0 {
+				out = append(out, htmlToken{raw: s})
+				break
+			}
+			raw := s[:end+1]
+			name := strings.TrimPrefix(strings.TrimPrefix(raw, "<"), "/")
+			if idx := strings.IndexAny(name, " >"); idx >= 0 {
+				name = name[:idx]
+			}
+			out = append(out, htmlToken{
+				raw:     raw,
+				isTag:   true,
+				name:    name,
+				closing: strings.HasPrefix(raw, "</"),
+			})
+			s = s[end+1:]
+			continue
+		}
+
+		idx := strings.IndexByte(s, '<')
+		if idx < 0 {
+			idx = len(s)
+		}
+		out = append(out, htmlToken{raw: s[:idx]})
+		s = s[idx:]
+	}
+	return out
+}
+
+// cutText returns the longest prefix within budget, preferring to cut at a
+// newline, then at a space, and stepping back from a half-consumed entity.
+func cutText(text string, budget int) (fit, rest string) {
+	if budget <= 0 {
+		return "", text
+	}
+
+	used := 0
+	end := len(text)
+	lastNewline, lastSpace := -1, -1
+	for i, r := range text {
+		width := 1
+		if r > 0xFFFF {
+			width = 2
+		}
+		if used+width > budget {
+			end = i
+			break
+		}
+		used += width
+		switch r {
+		case '\n':
+			lastNewline = i
+		case ' ':
+			lastSpace = i
+		}
+	}
+	if end == len(text) {
+		return text, ""
+	}
+
+	cut := end
+	if lastNewline > 0 {
+		cut = lastNewline
+	} else if lastSpace > 0 {
+		cut = lastSpace
+	} else {
+		// Do not cut a "&...;" entity in half.
+		if amp := strings.LastIndexByte(text[:cut], '&'); amp >= 0 && !strings.ContainsRune(text[amp:cut], ';') {
+			cut = amp
+		}
+	}
+	return text[:cut], text[cut:]
+}
+
+func utf16Len(s string) int {
+	n := 0
+	for _, r := range s {
+		if r > 0xFFFF {
+			n += 2
+		} else {
+			n++
+		}
+	}
+	return n
 }
