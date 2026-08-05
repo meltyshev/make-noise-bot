@@ -74,10 +74,44 @@ func cmdPermission() *Command {
 
 // permissionChange implements /allow and /forbid.
 func permissionChange(name string, target store.Permission, notification string) *Command {
+	apply := func(c *Ctx, input string) {
+		chatID, err := strconv.ParseInt(strings.TrimSpace(input), 10, 64)
+		if err != nil {
+			c.Reply(texts.ChatNotFound)
+			return
+		}
+
+		changed := false
+		storeErr := c.app.store.Update(func(d *store.Data) {
+			if chat, ok := d.Chats[chatID]; ok && chat.Permission != target {
+				chat.Permission = target
+				changed = true
+			}
+		})
+		if storeErr != nil {
+			c.app.reportError(storeErr)
+			return
+		}
+
+		if !changed {
+			c.Reply(texts.ChatNotFound)
+			return
+		}
+		if err := c.Send(chatID, notification); err != nil {
+			c.app.log.Warn("permission notification failed", "chat_id", chatID, "error", err)
+		}
+		c.Reply(texts.Done)
+	}
+
 	return &Command{
 		Name: name,
-		Init: func(c *Ctx, _ string) {
+		Init: func(c *Ctx, args string) {
 			if !c.IsAdmin() {
+				return
+			}
+			if args != "" {
+				c.DelConv()
+				apply(c, args)
 				return
 			}
 			c.SetConv(name)
@@ -85,33 +119,7 @@ func permissionChange(name string, target store.Permission, notification string)
 		},
 		Handle: func(c *Ctx, _ any) {
 			c.DelConv()
-
-			chatID, err := strconv.ParseInt(strings.TrimSpace(c.Text()), 10, 64)
-			if err != nil {
-				c.Reply(texts.ChatNotFound)
-				return
-			}
-
-			changed := false
-			storeErr := c.app.store.Update(func(d *store.Data) {
-				if chat, ok := d.Chats[chatID]; ok && chat.Permission != target {
-					chat.Permission = target
-					changed = true
-				}
-			})
-			if storeErr != nil {
-				c.app.reportError(storeErr)
-				return
-			}
-
-			if !changed {
-				c.Reply(texts.ChatNotFound)
-				return
-			}
-			if err := c.Send(chatID, notification); err != nil {
-				c.app.log.Warn("permission notification failed", "chat_id", chatID, "error", err)
-			}
-			c.Reply(texts.Done)
+			apply(c, c.Text())
 		},
 	}
 }
@@ -125,10 +133,41 @@ func cmdForbid() *Command {
 }
 
 func cmdDrop() *Command {
+	apply := func(c *Ctx, input string) {
+		chatID, err := strconv.ParseInt(strings.TrimSpace(input), 10, 64)
+		if err != nil {
+			c.Reply(texts.ChatNotFound)
+			return
+		}
+
+		deleted := false
+		storeErr := c.app.store.Update(func(d *store.Data) {
+			if _, ok := d.Chats[chatID]; ok {
+				delete(d.Chats, chatID)
+				deleted = true
+			}
+		})
+		if storeErr != nil {
+			c.app.reportError(storeErr)
+			return
+		}
+
+		if deleted {
+			c.Reply(texts.Done)
+		} else {
+			c.Reply(texts.ChatNotFound)
+		}
+	}
+
 	return &Command{
 		Name: "drop",
-		Init: func(c *Ctx, _ string) {
+		Init: func(c *Ctx, args string) {
 			if !c.IsAdmin() {
+				return
+			}
+			if args != "" {
+				c.DelConv()
+				apply(c, args)
 				return
 			}
 			c.SetConv("drop")
@@ -136,41 +175,47 @@ func cmdDrop() *Command {
 		},
 		Handle: func(c *Ctx, _ any) {
 			c.DelConv()
-
-			chatID, err := strconv.ParseInt(strings.TrimSpace(c.Text()), 10, 64)
-			if err != nil {
-				c.Reply(texts.ChatNotFound)
-				return
-			}
-
-			deleted := false
-			storeErr := c.app.store.Update(func(d *store.Data) {
-				if _, ok := d.Chats[chatID]; ok {
-					delete(d.Chats, chatID)
-					deleted = true
-				}
-			})
-			if storeErr != nil {
-				c.app.reportError(storeErr)
-				return
-			}
-
-			if deleted {
-				c.Reply(texts.Done)
-			} else {
-				c.Reply(texts.ChatNotFound)
-			}
+			apply(c, c.Text())
 		},
 	}
 }
 
 func cmdWrite() *Command {
+	deliver := func(c *Ctx, chatID int64, text string) {
+		if text == "" {
+			c.Reply(texts.TextRequired)
+			return
+		}
+		if err := c.Send(chatID, text); err != nil {
+			c.Reply(texts.ChatNotFound)
+			return
+		}
+		c.Reply(texts.Done)
+	}
+
 	return &Command{
 		Name: "write",
-		Init: func(c *Ctx, _ string) {
+		Init: func(c *Ctx, args string) {
 			if !c.IsAdmin() {
 				return
 			}
+
+			if args != "" {
+				idText, text, _ := strings.Cut(args, " ")
+				chatID, err := strconv.ParseInt(idText, 10, 64)
+				if err == nil {
+					text = strings.TrimSpace(text)
+					if text == "" {
+						c.SetConvState("write", chatID)
+						c.Reply(texts.WriteWhat)
+						return
+					}
+					c.DelConv()
+					deliver(c, chatID, text)
+					return
+				}
+			}
+
 			c.SetConv("write")
 			c.Reply(texts.AskChatIDWrite)
 		},
@@ -188,15 +233,11 @@ func cmdWrite() *Command {
 
 			c.DelConv()
 			chatID, ok := state.(int64)
-			if !ok || c.Text() == "" {
+			if !ok {
 				c.Reply(texts.TextRequired)
 				return
 			}
-			if err := c.Send(chatID, c.Text()); err != nil {
-				c.Reply(texts.ChatNotFound)
-				return
-			}
-			c.Reply(texts.Done)
+			deliver(c, chatID, c.Text())
 		},
 	}
 }

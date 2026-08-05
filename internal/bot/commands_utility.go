@@ -248,31 +248,62 @@ func joinLimited(items []string) string {
 }
 
 func cmdCoordinates() *Command {
+	replyDMS := func(c *Ctx, latitude, longitude float64) {
+		latDeg, latMin, latSec := toDMS(latitude)
+		lngDeg, lngMin, lngSec := toDMS(longitude)
+
+		c.Replyf(`%d°%02d'%05.2f"N %d°%02d'%05.2f"E`,
+			latDeg, latMin, latSec,
+			lngDeg, lngMin, lngSec,
+		)
+	}
+
 	return &Command{
 		Name: "coordinates",
-		Init: func(c *Ctx, _ string) {
+		Init: func(c *Ctx, args string) {
 			if !c.EnsureAllowed("coordinates") {
+				return
+			}
+			if args != "" {
+				c.DelConv()
+				if latitude, longitude, ok := parseCoordinates(args); ok {
+					replyDMS(c, latitude, longitude)
+				} else {
+					c.Reply(texts.CoordinatesRequired)
+				}
 				return
 			}
 			c.SetConv("coordinates")
 			c.Reply(texts.CoordinatesAsk)
 		},
 		Handle: func(c *Ctx, _ any) {
-			if c.msg.Location == nil {
-				c.Reply(texts.CoordinatesRequired)
+			if c.msg.Location != nil {
+				c.DelConv()
+				replyDMS(c, c.msg.Location.Latitude, c.msg.Location.Longitude)
 				return
 			}
-			c.DelConv()
-
-			latDeg, latMin, latSec := toDMS(c.msg.Location.Latitude)
-			lngDeg, lngMin, lngSec := toDMS(c.msg.Location.Longitude)
-
-			c.Replyf(`%d°%02d'%05.2f"N %d°%02d'%05.2f"E`,
-				latDeg, latMin, latSec,
-				lngDeg, lngMin, lngSec,
-			)
+			if latitude, longitude, ok := parseCoordinates(c.Text()); ok {
+				c.DelConv()
+				replyDMS(c, latitude, longitude)
+				return
+			}
+			c.Reply(texts.CoordinatesRequired)
 		},
 	}
+}
+
+func parseCoordinates(input string) (latitude, longitude float64, ok bool) {
+	fields := strings.Fields(strings.ReplaceAll(input, ",", " "))
+	if len(fields) != 2 {
+		return 0, 0, false
+	}
+
+	latitude, latErr := strconv.ParseFloat(fields[0], 64)
+	longitude, lngErr := strconv.ParseFloat(fields[1], 64)
+	if latErr != nil || lngErr != nil {
+		return 0, 0, false
+	}
+	return latitude, longitude, true
 }
 
 func toDMS(decimal float64) (int, int, float64) {
@@ -283,28 +314,41 @@ func toDMS(decimal float64) (int, int, float64) {
 }
 
 func cmdAvatar() *Command {
+	run := func(c *Ctx, input string) {
+		fields := strings.Fields(input)
+		if len(fields) < 3 {
+			c.Reply(texts.AvatarUsage)
+			return
+		}
+
+		background, foreground := fields[0], fields[1]
+		for _, nickname := range fields[2:] {
+			png, err := avatar.Generate(background, foreground, nickname)
+			if err != nil {
+				c.Reply(texts.AvatarUsage)
+				return
+			}
+			c.ReplyPhoto(png, "")
+		}
+	}
+
 	return &Command{
 		Name: "avatar",
 		Init: func(c *Ctx, args string) {
 			if !c.IsManager() {
 				return
 			}
-
-			fields := strings.Fields(args)
-			if len(fields) < 3 {
-				c.Reply(texts.AvatarUsage)
+			if args != "" {
+				c.DelConv()
+				run(c, args)
 				return
 			}
-
-			background, foreground := fields[0], fields[1]
-			for _, nickname := range fields[2:] {
-				png, err := avatar.Generate(background, foreground, nickname)
-				if err != nil {
-					c.Reply(texts.AvatarUsage)
-					return
-				}
-				c.ReplyPhoto(png, "")
-			}
+			c.SetConv("avatar")
+			c.Reply(texts.AvatarAsk)
+		},
+		Handle: func(c *Ctx, _ any) {
+			c.DelConv()
+			run(c, c.Text())
 		},
 	}
 }

@@ -165,9 +165,34 @@ func cmdLink() *Command {
 }
 
 func cmdCodeFormats() *Command {
+	apply := func(c *Ctx, input string) {
+		if input == "" {
+			c.Reply(texts.CodeFormatsInvalid)
+			return
+		}
+		if _, ok := c.app.store.Game(); !ok {
+			c.Reply(texts.NoActiveGame)
+			return
+		}
+
+		var formats [][]string
+		if err := json.Unmarshal([]byte(input), &formats); err != nil {
+			c.Reply(texts.CodeFormatsInvalid)
+			return
+		}
+		if formats == nil {
+			formats = [][]string{}
+		}
+		if err := c.app.store.UpdateGame(func(g *store.Game) { g.CodeFormats = formats }); err != nil {
+			c.app.reportError(err)
+			return
+		}
+		c.Reply(texts.Done)
+	}
+
 	return &Command{
 		Name: "codeformats",
-		Init: func(c *Ctx, _ string) {
+		Init: func(c *Ctx, args string) {
 			if !c.IsManager() {
 				return
 			}
@@ -175,34 +200,17 @@ func cmdCodeFormats() *Command {
 				c.Reply(texts.NoActiveGame)
 				return
 			}
+			if args != "" {
+				c.DelConv()
+				apply(c, args)
+				return
+			}
 			c.SetConv("codeformats")
 			c.Reply(texts.CodeFormatsAsk)
 		},
 		Handle: func(c *Ctx, _ any) {
 			c.DelConv()
-
-			if c.Text() == "" {
-				c.Reply(texts.CodeFormatsInvalid)
-				return
-			}
-			if _, ok := c.app.store.Game(); !ok {
-				c.Reply(texts.NoActiveGame)
-				return
-			}
-
-			var formats [][]string
-			if err := json.Unmarshal([]byte(c.Text()), &formats); err != nil {
-				c.Reply(texts.CodeFormatsInvalid)
-				return
-			}
-			if formats == nil {
-				formats = [][]string{}
-			}
-			if err := c.app.store.UpdateGame(func(g *store.Game) { g.CodeFormats = formats }); err != nil {
-				c.app.reportError(err)
-				return
-			}
-			c.Reply(texts.Done)
+			apply(c, c.Text())
 		},
 	}
 }
@@ -271,9 +279,28 @@ func cmdBruteForce() *Command {
 }
 
 func cmdPinLevel() *Command {
+	apply := func(c *Ctx, input string) {
+		if input == "" || !isDigits(input) {
+			c.Reply(texts.PinLevelRequired)
+			return
+		}
+		if c.app.ClassicEngine() == nil {
+			c.Reply(texts.NoActiveGame)
+			return
+		}
+
+		level := 0
+		fmt.Sscanf(input, "%d", &level)
+		if err := c.app.store.UpdateGame(func(g *store.Game) { g.PinnedLevel = &level }); err != nil {
+			c.app.reportError(err)
+			return
+		}
+		c.Reply(texts.Done)
+	}
+
 	return &Command{
 		Name: "pinlevel",
-		Init: func(c *Ctx, _ string) {
+		Init: func(c *Ctx, args string) {
 			if !c.IsManager() {
 				return
 			}
@@ -281,29 +308,17 @@ func cmdPinLevel() *Command {
 				c.Reply(texts.NoActiveGame)
 				return
 			}
+			if args != "" {
+				c.DelConv()
+				apply(c, args)
+				return
+			}
 			c.SetConv("pinlevel")
 			c.Reply(texts.PinLevelAsk)
 		},
 		Handle: func(c *Ctx, _ any) {
 			c.DelConv()
-
-			text := c.Text()
-			if text == "" || !isDigits(text) {
-				c.Reply(texts.PinLevelRequired)
-				return
-			}
-			if c.app.ClassicEngine() == nil {
-				c.Reply(texts.NoActiveGame)
-				return
-			}
-
-			level := 0
-			fmt.Sscanf(text, "%d", &level)
-			if err := c.app.store.UpdateGame(func(g *store.Game) { g.PinnedLevel = &level }); err != nil {
-				c.app.reportError(err)
-				return
-			}
-			c.Reply(texts.Done)
+			apply(c, c.Text())
 		},
 	}
 }

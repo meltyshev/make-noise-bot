@@ -88,6 +88,30 @@ func TestFormatSectorEven(t *testing.T) {
 	}
 }
 
+func TestParseCoordinates(t *testing.T) {
+	tests := []struct {
+		input  string
+		lat    float64
+		lng    float64
+		wantOK bool
+	}{
+		{"56.838011 60.597465", 56.838011, 60.597465, true},
+		{"56.838011, 60.597465", 56.838011, 60.597465, true},
+		{"56.838011,60.597465", 56.838011, 60.597465, true},
+		{"-12.5 30", -12.5, 30, true},
+		{"адрес какой-то", 0, 0, false},
+		{"56.8", 0, 0, false},
+		{"56.8 60.5 12", 0, 0, false},
+	}
+	for _, tt := range tests {
+		lat, lng, ok := parseCoordinates(tt.input)
+		if ok != tt.wantOK || lat != tt.lat || lng != tt.lng {
+			t.Errorf("parseCoordinates(%q) = (%v, %v, %v), want (%v, %v, %v)",
+				tt.input, lat, lng, ok, tt.lat, tt.lng, tt.wantOK)
+		}
+	}
+}
+
 func TestJoinLimited(t *testing.T) {
 	short := []string{"кот", "ток"}
 	if got := joinLimited(short); got != "кот, ток" {
