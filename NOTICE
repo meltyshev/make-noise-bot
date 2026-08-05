@@ -1,0 +1,12 @@
+make-noise-bot embeds the following third-party assets:
+
+- Roboto Bold font (internal/avatar/assets/Roboto-Bold.ttf)
+  Copyright Google LLC. Licensed under the Apache License, Version 2.0.
+  https://fonts.google.com/specimen/Roboto
+
+- Russian nouns wordlist (internal/words/assets/ru.txt.gz)
+  From Harrix/Russian-Nouns by Anton Sergienko. Licensed under the MIT License.
+  https://github.com/Harrix/Russian-Nouns
+
+- ENABLE English wordlist (internal/words/assets/en.txt.gz)
+  Enhanced North American Benchmark Lexicon. Public domain.

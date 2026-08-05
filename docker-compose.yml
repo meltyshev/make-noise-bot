@@ -1,38 +1,14 @@
-version: '3'
-
 services:
   make-noise-bot:
     image: meltyshev/make-noise-bot:latest
-    restart: unless-stopped
-    ports:
-      - 8000:8000
-    environment:
-      # Required
-      - TELEGRAM_ADMIN_ID=
-      - TELEGRAM_API_TOKEN=
-
-      - GOOGLE_API_KEY=
-      - UPDATE_INTERVAL=5
-
-      - MONGODB_URL=mongodb://mongo/make-noise-bot
-      - REDIS_URL=redis://redis
-      - REDIS_DB=0
-    depends_on:
-      - mongo
-      - redis
-
-  mongo:
-    image: mongo:5
+    build: .
     restart: unless-stopped
     volumes:
-      - mongo-data:/data/db
+      - ./data:/data
 
-  redis:
-    image: redis:alpine
-    restart: unless-stopped
-    volumes:
-      - redis-data:/data
-
-volumes:
-  mongo-data:
-  redis-data:
+# First run (creates ./data/config.json interactively):
+#   docker compose run --rm make-noise-bot
+# or non-interactively:
+#   docker compose run --rm make-noise-bot --token 123456:ABC-DEF
+# then:
+#   docker compose up -d

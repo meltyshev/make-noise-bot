@@ -1,0 +1,152 @@
+package store
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func openTemp(t *testing.T) (*Store, string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "state.json")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	return s, path
+}
+
+func TestOpenMissingFileGivesDefaults(t *testing.T) {
+	s, path := openTemp(t)
+
+	cfg := s.GameConfig()
+	if cfg.Engine != "DozorClassic" || cfg.City != "e-burg" {
+		t.Errorf("defaults = %+v", cfg)
+	}
+	if len(cfg.CodeFormats) != 1 || cfg.CodeFormats[0][0] != "dr" {
+		t.Errorf("default code formats = %v", cfg.CodeFormats)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Error("opening must not create the file before the first update")
+	}
+}
+
+func TestUpdatePersistsAndReloads(t *testing.T) {
+	s, path := openTemp(t)
+
+	err := s.Update(func(d *Data) {
+		d.Managers = []int64{7}
+		d.Chats[42] = &Chat{ID: 42, Type: "group", Permission: PermissionAllowed, Title: "Team"}
+		level := 3
+		d.Game = &Game{Engine: "DozorClassic", City: "e-burg", LevelNumber: &level, Subscribers: []int64{42}}
+	})
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+
+	if !reopened.IsManager(7) || reopened.IsManager(8) {
+		t.Error("managers not persisted")
+	}
+	chat, ok := reopened.Chat(42)
+	if !ok || chat.Permission != PermissionAllowed || chat.Title != "Team" {
+		t.Errorf("chat = %+v, ok=%v", chat, ok)
+	}
+	game, ok := reopened.Game()
+	if !ok || game.LevelNumber == nil || *game.LevelNumber != 3 || !game.HasSubscriber(42) {
+		t.Errorf("game = %+v, ok=%v", game, ok)
+	}
+}
+
+func TestGameReturnsCopies(t *testing.T) {
+	s, _ := openTemp(t)
+	if err := s.Update(func(d *Data) {
+		d.Game = &Game{Engine: "DozorLite", Subscribers: []int64{1}}
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	game, _ := s.Game()
+	game.Subscribers[0] = 999
+	game.Engine = "hacked"
+
+	fresh, _ := s.Game()
+	if fresh.Subscribers[0] != 1 || fresh.Engine != "DozorLite" {
+		t.Error("Game() must return an independent copy")
+	}
+}
+
+func TestRating(t *testing.T) {
+	s, _ := openTemp(t)
+
+	for range 3 {
+		if err := s.IncrementPlayer(1, "Один"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.IncrementPlayer(2, "Два"); err != nil {
+		t.Fatal(err)
+	}
+
+	rating := s.Rating()
+	if len(rating) != 2 {
+		t.Fatalf("rating size = %d", len(rating))
+	}
+	if rating[0].Name != "Один" || rating[0].Total != 3 || rating[1].Name != "Два" {
+		t.Errorf("rating = %+v", rating)
+	}
+}
+
+// TestEmptyListsMarshalAsArrays pins the /gameconfig display: empty lists
+// must render as [], not null (nil slices marshal as JSON null in Go).
+func TestEmptyListsMarshalAsArrays(t *testing.T) {
+	s, _ := openTemp(t)
+	if err := s.Update(func(d *Data) {
+		d.GameConfig.Subscribers = []int64{}
+		d.GameConfig.CodeFormats = [][]string{}
+		d.Game = &Game{Engine: "DozorClassic"}
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := s.GameConfig()
+	for name, value := range map[string]any{
+		"subscribers":  cfg.Subscribers,
+		"code_formats": cfg.CodeFormats,
+	} {
+		raw, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(raw) != "[]" {
+			t.Errorf("%s marshals as %s, want []", name, raw)
+		}
+	}
+
+	// Copies of a game loaded from a hand-edited state with null lists must
+	// also come out as [].
+	game, _ := s.Game()
+	if game.Subscribers == nil || game.SolvedSpoilers == nil {
+		t.Error("game list copies must be non-nil")
+	}
+}
+
+func TestOpenToleratesNulledCollections(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	if err := os.WriteFile(path, []byte(`{"managers": null, "chats": null, "players": null}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if err := s.Update(func(d *Data) { d.Chats[1] = &Chat{ID: 1} }); err != nil {
+		t.Fatalf("Update on nulled maps: %v", err)
+	}
+}

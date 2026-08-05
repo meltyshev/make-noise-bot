@@ -1,15 +1,19 @@
-FROM python:3.6
+FROM golang:1.26-alpine AS build
 
-WORKDIR /app
+WORKDIR /src
 
-COPY requirements.txt .
-
-RUN pip install "setuptools<58.0.0" --no-cache-dir
-RUN pip install -r requirements.txt --no-cache-dir
+COPY go.mod go.sum ./
+RUN go mod download
 
 COPY . .
-RUN chmod +x start.sh
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /make-noise-bot .
 
-EXPOSE 8000
+FROM gcr.io/distroless/static-debian12
 
-CMD ["./start.sh"]
+COPY --from=build /make-noise-bot /make-noise-bot
+
+# Config and state live in /data; mount it to keep them across restarts.
+WORKDIR /data
+VOLUME /data
+
+ENTRYPOINT ["/make-noise-bot"]

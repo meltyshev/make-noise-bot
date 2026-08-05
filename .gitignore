@@ -1,6 +1,12 @@
-.vscode/
-venv/
+/make-noise-bot
+*.exe
 
-__pycache__/
-*.py[cod]
+# Runtime files contain the bot token and game credentials.
+config.json
+state.json
+debug/
+data/
+
+dist/
 .DS_Store
+.vscode/
