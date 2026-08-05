@@ -88,12 +88,12 @@ func (c *Ctx) ReplyAlways(text string) {
 	})
 }
 
-func (c *Ctx) ReplyKeyboard(text string, keyboard [][]models.KeyboardButton) {
+func (c *Ctx) ReplyInline(text string, keyboard [][]models.InlineKeyboardButton) {
 	c.send(&tgbot.SendMessageParams{
 		ChatID:          c.ChatID(),
 		Text:            text,
 		ReplyParameters: c.replyParams(),
-		ReplyMarkup:     &models.ReplyKeyboardMarkup{Keyboard: keyboard, ResizeKeyboard: true},
+		ReplyMarkup:     &models.InlineKeyboardMarkup{InlineKeyboard: keyboard},
 	})
 }
 
@@ -133,15 +133,6 @@ func (c *Ctx) ReplyLocation(latitude, longitude float64) {
 func (c *Ctx) Send(chatID int64, text string) error {
 	_, err := c.app.tg.SendMessage(c.ctx, &tgbot.SendMessageParams{ChatID: chatID, Text: text})
 	return err
-}
-
-func (c *Ctx) SendToAdmin(text string) *models.Message {
-	msg, err := c.app.tg.SendMessage(c.ctx, &tgbot.SendMessageParams{ChatID: c.app.adminID(), Text: text})
-	if err != nil {
-		c.app.log.Error("send to admin failed", "error", err)
-		return nil
-	}
-	return msg
 }
 
 func (c *Ctx) SetConv(name string)             { c.app.conv.Set(c.UserID(), c.ChatID(), name, nil) }

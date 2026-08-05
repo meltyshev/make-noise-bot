@@ -58,8 +58,9 @@ docker compose up -d
    normalized by the configured formats; `!код` submits as-is. `?` prints the
    sector board and progress, `$код` answers a pinned (сквозной) level.
 
-Chats must be allowed first: `/permission` sends a request, the admin approves
-it with `/allow`.
+Chats must be allowed first: `/permission` sends the admin a request with
+Allow/Forbid buttons (manual `/allow <id>` works too). Managers and
+subscribers are picked from button lists in `/config` and `/gameconfig`.
 
 ## Commands
 

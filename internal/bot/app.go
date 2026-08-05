@@ -188,17 +188,6 @@ func (a *App) reportError(err error) {
 	}
 }
 
-func (a *App) sendToAdminReply(ctx context.Context, text string, replyTo int) {
-	_, err := a.tg.SendMessage(ctx, &tgbot.SendMessageParams{
-		ChatID:          a.adminID(),
-		Text:            text,
-		ReplyParameters: &models.ReplyParameters{MessageID: replyTo},
-	})
-	if err != nil {
-		a.log.Error("send to admin failed", "error", err)
-	}
-}
-
 // debugDump saves a raw engine payload next to the state file (--debug).
 func (a *App) debugDump(kind string, body []byte) {
 	dir := filepath.Join(filepath.Dir(a.cfg.StatePath), "debug")

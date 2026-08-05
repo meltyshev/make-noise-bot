@@ -1,9 +1,7 @@
 package bot
 
 import (
-	"encoding/json"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -12,14 +10,6 @@ import (
 	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
-
-func kbRow(labels ...string) []models.KeyboardButton {
-	row := make([]models.KeyboardButton, len(labels))
-	for i, label := range labels {
-		row[i] = models.KeyboardButton{Text: label}
-	}
-	return row
-}
 
 func cmdPermission() *Command {
 	return &Command{
@@ -63,9 +53,10 @@ func cmdPermission() *Command {
 					text += fmt.Sprintf("\n%s: %s", field.name, field.value)
 				}
 			}
+			text += fmt.Sprintf("\nid: %d", chat.ID)
 
-			if request := c.SendToAdmin(text); request != nil {
-				c.app.sendToAdminReply(c.ctx, strconv.FormatInt(chat.ID, 10), request.ID)
+			if err := c.app.sendInline(c.ctx, c.app.adminID(), text, permRequestKeyboard(chat.ID)); err != nil {
+				c.app.log.Error("send to admin failed", "error", err)
 			}
 			c.Reply(texts.PermissionRequestSent)
 		},
@@ -242,199 +233,76 @@ func cmdWrite() *Command {
 	}
 }
 
-type chatsState struct {
-	ChatID *int64
-}
-
 func cmdChats() *Command {
-	mainMenu := func(c *Ctx) {
-		c.SetConvState("chats", &chatsState{})
-
-		var chats []store.Chat
-		c.app.store.View(func(d *store.Data) {
-			for _, chat := range d.Chats {
-				chats = append(chats, *chat)
-			}
-		})
-		sort.Slice(chats, func(i, j int) bool { return chats[i].ID < chats[j].ID })
-
-		var keyboard [][]models.KeyboardButton
-		for _, chat := range chats {
-			keyboard = append(keyboard, kbRow(fmt.Sprintf("%s | %d", chat.DisplayName(), chat.ID)))
-		}
-		keyboard = append(keyboard, kbRow(texts.ButtonClose))
-
-		c.ReplyKeyboard(texts.ChatsChoose, keyboard)
-	}
-
-	actionsMenu := func(c *Ctx, chat store.Chat) {
-		chatID := chat.ID
-		c.SetConvState("chats", &chatsState{ChatID: &chatID})
-		c.ReplyKeyboard(
-			fmt.Sprintf(texts.ChatsActionsFmt, chat.DisplayName(), chat.ID, chat.Type, chat.Permission),
-			[][]models.KeyboardButton{
-				kbRow(texts.ButtonDelete),
-				kbRow(texts.ButtonBack, texts.ButtonClose),
-			},
-		)
-	}
-
-	closeMenu := func(c *Ctx) {
-		c.DelConv()
-		c.ReplyRemoveKeyboard(texts.ChatsClosed)
-	}
-
 	return &Command{
 		Name: "chats",
 		Init: func(c *Ctx, _ string) {
 			if !c.IsAdmin() {
 				return
 			}
-			mainMenu(c)
-		},
-		Handle: func(c *Ctx, state any) {
-			menu, ok := state.(*chatsState)
-			if !ok {
-				mainMenu(c)
-				return
-			}
-
-			if menu.ChatID == nil {
-				if c.Text() == texts.ButtonClose {
-					closeMenu(c)
-					return
-				}
-
-				idx := strings.LastIndex(c.Text(), " | ")
-				if idx < 0 {
-					c.Reply(texts.ChatsNoAction)
-					mainMenu(c)
-					return
-				}
-				chatID, err := strconv.ParseInt(c.Text()[idx+3:], 10, 64)
-				if err != nil {
-					c.Reply(texts.ChatsNotFound)
-					mainMenu(c)
-					return
-				}
-				chat, found := c.app.store.Chat(chatID)
-				if !found {
-					c.Reply(texts.ChatsNotFound)
-					mainMenu(c)
-					return
-				}
-				actionsMenu(c, chat)
-				return
-			}
-
-			chat, found := c.app.store.Chat(*menu.ChatID)
-			if !found {
-				c.Reply(texts.ChatsGone)
-				mainMenu(c)
-				return
-			}
-
-			switch c.Text() {
-			case texts.ButtonBack:
-				mainMenu(c)
-			case texts.ButtonClose:
-				closeMenu(c)
-			case texts.ButtonDelete:
-				err := c.app.store.Update(func(d *store.Data) { delete(d.Chats, chat.ID) })
-				if err != nil {
-					c.app.reportError(err)
-					return
-				}
-				c.Reply(texts.ChatsDeleted)
-				mainMenu(c)
-			default:
-				c.Reply(texts.ChatsNoAction)
-				actionsMenu(c, chat)
-			}
+			var (
+				text     string
+				keyboard [][]models.InlineKeyboardButton
+			)
+			c.app.store.View(func(d *store.Data) { text, keyboard = renderChatsList(d) })
+			c.ReplyInline(text, keyboard)
 		},
 	}
 }
 
 func cmdConfig() *Command {
-	menu := func(c *Ctx) {
-		c.SetConv("config")
-
-		var (
-			managers  []int64
-			leaveMode bool
-		)
-		c.app.store.View(func(d *store.Data) {
-			managers = append([]int64{}, d.Managers...)
-			leaveMode = d.LeaveMode
-		})
-
-		managersJSON, _ := json.Marshal(managers)
-		leaveModeWord := texts.LeaveModeOffWord
-		if leaveMode {
-			leaveModeWord = texts.LeaveModeOnWord
-		}
-
-		c.ReplyKeyboard(texts.SettingsTitle, [][]models.KeyboardButton{
-			kbRow(fmt.Sprintf(texts.ManagersFmt, managersJSON)),
-			kbRow(fmt.Sprintf(texts.LeaveModeFmt, leaveModeWord)),
-			kbRow(texts.ButtonReset, texts.ButtonFinish),
-		})
-	}
-
 	return &Command{
 		Name: "config",
 		Init: func(c *Ctx, _ string) {
 			if !c.IsAdmin() {
 				return
 			}
-			menu(c)
+			var (
+				text     string
+				keyboard [][]models.InlineKeyboardButton
+			)
+			c.app.store.View(func(d *store.Data) { text, keyboard = renderConfigMenu(d) })
+			c.ReplyInline(text, keyboard)
 		},
 		Handle: func(c *Ctx, state any) {
-			text := c.Text()
-
-			if state == "managers" {
-				if text != texts.ButtonCancel {
-					var managers []int64
-					if err := json.Unmarshal([]byte(text), &managers); err == nil {
-						if managers == nil {
-							managers = []int64{}
-						}
-						if err := c.app.store.Update(func(d *store.Data) { d.Managers = managers }); err != nil {
-							c.app.reportError(err)
-							return
-						}
-					}
-				}
-				menu(c)
+			pick, ok := state.(pickManagers)
+			if !ok {
+				c.DelConv()
 				return
 			}
 
-			switch {
-			case strings.HasPrefix(text, "Менеджеры"):
-				c.SetConvState("config", "managers")
-				c.ReplyKeyboard(texts.ManagersAsk, [][]models.KeyboardButton{kbRow(texts.ButtonCancel)})
-			case strings.HasPrefix(text, "Режим выхода"):
-				err := c.app.store.Update(func(d *store.Data) { d.LeaveMode = !d.LeaveMode })
-				if err != nil {
-					c.app.reportError(err)
-					return
-				}
-				menu(c)
-			case text == texts.ButtonFinish:
-				c.DelConv()
-				c.ReplyRemoveKeyboard(texts.Done)
-			case text == texts.ButtonReset:
+			if c.msg.UsersShared != nil {
 				err := c.app.store.Update(func(d *store.Data) {
-					d.Managers = []int64{}
-					d.LeaveMode = false
+					for _, user := range c.msg.UsersShared.Users {
+						name := strings.TrimSpace(strings.TrimSpace(user.FirstName) + " " + strings.TrimSpace(user.LastName))
+						if name != "" {
+							d.UserNames[user.UserID] = name
+						}
+						if !d.IsManager(user.UserID) {
+							d.Managers = append(d.Managers, user.UserID)
+						}
+					}
 				})
 				if err != nil {
 					c.app.reportError(err)
 					return
 				}
-				menu(c)
-			default:
-				menu(c)
+
+				c.DelConv()
+				c.ReplyRemoveKeyboard(texts.Done)
+
+				var (
+					text     string
+					keyboard [][]models.InlineKeyboardButton
+				)
+				c.app.store.View(func(d *store.Data) { text, keyboard = renderManagers(d) })
+				c.app.editMessage(c.ctx, pick.ChatID, pick.MsgID, text, keyboard)
+				return
+			}
+
+			if c.Text() == texts.ButtonCancel {
+				c.DelConv()
+				c.ReplyRemoveKeyboard(texts.Done)
 			}
 		},
 	}

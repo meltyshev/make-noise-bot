@@ -17,6 +17,11 @@ import (
 func (a *App) onUpdate(ctx context.Context, _ *tgbot.Bot, update *models.Update) {
 	defer a.recoverPanic()
 
+	if update.CallbackQuery != nil {
+		a.onCallback(ctx, update.CallbackQuery)
+		return
+	}
+
 	msg := update.Message
 	if msg == nil {
 		return

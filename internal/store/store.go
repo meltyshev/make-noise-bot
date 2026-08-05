@@ -42,6 +42,9 @@ func Open(path string) (*Store, error) {
 	if s.data.Managers == nil {
 		s.data.Managers = []int64{}
 	}
+	if s.data.UserNames == nil {
+		s.data.UserNames = map[int64]string{}
+	}
 	if s.data.GameConfig.CodeFormats == nil {
 		s.data.GameConfig.CodeFormats = [][]string{}
 	}

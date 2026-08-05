@@ -1,5 +1,7 @@
 package store
 
+import "fmt"
+
 type Permission string
 
 const (
@@ -101,8 +103,11 @@ type Player struct {
 
 // Data is everything the bot persists between restarts.
 type Data struct {
-	Managers   []int64           `json:"managers"`
-	LeaveMode  bool              `json:"leave_mode,omitempty"`
+	Managers  []int64 `json:"managers"`
+	LeaveMode bool    `json:"leave_mode,omitempty"`
+	// UserNames remembers display names of users picked via the manager
+	// picker, which may have no chat with the bot.
+	UserNames  map[int64]string  `json:"user_names,omitempty"`
 	Chats      map[int64]*Chat   `json:"chats"`
 	GameConfig GameConfig        `json:"game_config"`
 	Game       *Game             `json:"game,omitempty"`
@@ -112,10 +117,24 @@ type Data struct {
 func newData() *Data {
 	return &Data{
 		Managers:   []int64{},
+		UserNames:  map[int64]string{},
 		Chats:      map[int64]*Chat{},
 		GameConfig: DefaultGameConfig(),
 		Players:    map[int64]*Player{},
 	}
+}
+
+// DisplayName resolves the best known name for a chat or user id.
+func (d *Data) DisplayName(id int64) string {
+	if chat, ok := d.Chats[id]; ok {
+		if name := chat.DisplayName(); name != "" {
+			return name
+		}
+	}
+	if name, ok := d.UserNames[id]; ok && name != "" {
+		return name
+	}
+	return fmt.Sprintf("ID %d", id)
 }
 
 func (d *Data) IsManager(userID int64) bool {
