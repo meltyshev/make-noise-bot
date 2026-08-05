@@ -15,7 +15,7 @@ func cmdGameConfig() *Command {
 	return &Command{
 		Name: "gameconfig",
 		Init: func(c *Ctx, _ string) {
-			if !c.IsManager() {
+			if !c.IsManager() || !c.EnsurePrivate() {
 				return
 			}
 			var (

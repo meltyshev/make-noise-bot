@@ -51,6 +51,15 @@ func (c *Ctx) isGroup() bool {
 	return c.msg.Chat.Type == models.ChatTypeGroup || c.msg.Chat.Type == models.ChatTypeSupergroup
 }
 
+// EnsurePrivate keeps settings menus out of group chats.
+func (c *Ctx) EnsurePrivate() bool {
+	if c.msg.Chat.Type == models.ChatTypePrivate {
+		return true
+	}
+	c.Reply(texts.PrivateOnly)
+	return false
+}
+
 // In group chats replies quote the triggering message.
 func (c *Ctx) replyParams() *models.ReplyParameters {
 	if !c.isGroup() {

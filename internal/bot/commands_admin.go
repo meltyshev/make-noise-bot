@@ -237,7 +237,7 @@ func cmdChats() *Command {
 	return &Command{
 		Name: "chats",
 		Init: func(c *Ctx, _ string) {
-			if !c.IsAdmin() {
+			if !c.IsAdmin() || !c.EnsurePrivate() {
 				return
 			}
 			var (
@@ -254,7 +254,7 @@ func cmdConfig() *Command {
 	return &Command{
 		Name: "config",
 		Init: func(c *Ctx, _ string) {
-			if !c.IsAdmin() {
+			if !c.IsAdmin() || !c.EnsurePrivate() {
 				return
 			}
 			var (
