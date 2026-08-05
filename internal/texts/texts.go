@@ -71,23 +71,21 @@ const (
 
 // Game commands.
 const (
-	GameOver           = "Игра окончена."
-	GameCannotStart    = "Не могу получить сессию."
-	QuestionNone       = "Задания нет."
-	NotesNone          = "Примечаний нет."
-	InfoNone           = "Информации нет."
-	RatingNone         = "Рейтинга пока нет."
-	RatingCleared      = "Рейтинг очищен."
-	SubscribeOn        = "Подписка активирована."
-	SubscribeOff       = "Подписка отменена."
-	RestrictOn         = "Ввод кодов ограничен."
-	RestrictOff        = "Ограничение на ввод кодов снято."
-	BruteForceOn       = "Режим перебора активирован."
-	BruteForceOff      = "Режим перебора отключен."
-	CodeFormatsAsk     = "Какие форматы кода?"
-	CodeFormatsInvalid = "Ты должен ввести форматы кода!"
-	PinLevelAsk        = "Какой номер уровня?"
-	PinLevelRequired   = "Ты должен ввести номер уровня!"
+	GameOver         = "Игра окончена."
+	GameCannotStart  = "Не могу получить сессию."
+	QuestionNone     = "Задания нет."
+	NotesNone        = "Примечаний нет."
+	InfoNone         = "Информации нет."
+	RatingNone       = "Рейтинга пока нет."
+	RatingCleared    = "Рейтинг очищен."
+	SubscribeOn      = "Подписка активирована."
+	SubscribeOff     = "Подписка отменена."
+	RestrictOn       = "Ввод кодов ограничен."
+	RestrictOff      = "Ограничение на ввод кодов снято."
+	BruteForceOn     = "Режим перебора активирован."
+	BruteForceOff    = "Режим перебора отключен."
+	PinLevelAsk      = "Какой номер уровня?"
+	PinLevelRequired = "Ты должен ввести номер уровня!"
 )
 
 // Updater broadcasts.
@@ -161,6 +159,14 @@ const (
 	SubscribersTitle        = "Подписчики:"
 	GameSubscribersTitle    = "Подписчики текущей игры:"
 	GameSubscribersCountFmt = "Подписчики игры: %d"
+
+	FormatsTitle     = "Форматы кода:"
+	ButtonManual     = "Ввести вручную"
+	FormatsManualAsk = "Введи форматы: группы через запятую, синонимы через =, первый вариант уходит в движок. Например: dr=др=--, rd=рд"
+	FormatsInvalid   = "Не понял. Пример: dr=др=--, rd=рд"
+	PresetDigitsOnly = "Только цифры"
+	PresetDR         = "DR (dr, др, --)"
+	PresetMoscow     = "Москва (dr, rd, d, r)"
 )
 
 // Command descriptions for /help and the Telegram command menu.

@@ -1,8 +1,6 @@
 package bot
 
 import (
-	"encoding/json"
-
 	"github.com/go-telegram/bot/models"
 
 	"github.com/meltyshev/make-noise-bot/internal/store"
@@ -38,12 +36,24 @@ func cmdGameConfig() *Command {
 				return
 			}
 
-			err := c.app.store.Update(func(d *store.Data) {
-				applyGameConfigField(&d.GameConfig, field.Field, value)
-			})
-			if err != nil {
-				c.app.reportError(err)
-				return
+			if field.Field == "code_formats" {
+				formats, valid := parseCodeFormats(value)
+				if !valid {
+					c.Reply(texts.FormatsInvalid)
+					return
+				}
+				if err := c.app.applyFormats(formats); err != nil {
+					c.app.reportError(err)
+					return
+				}
+			} else {
+				err := c.app.store.Update(func(d *store.Data) {
+					applyGameConfigField(&d.GameConfig, field.Field, value)
+				})
+				if err != nil {
+					c.app.reportError(err)
+					return
+				}
 			}
 
 			c.DelConv()
@@ -72,13 +82,5 @@ func applyGameConfigField(cfg *store.GameConfig, field, value string) {
 		cfg.GameID = value
 	case "league":
 		cfg.League = value
-	case "code_formats":
-		var formats [][]string
-		if json.Unmarshal([]byte(value), &formats) == nil {
-			if formats == nil {
-				formats = [][]string{}
-			}
-			cfg.CodeFormats = formats
-		}
 	}
 }

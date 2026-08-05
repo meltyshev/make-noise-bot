@@ -189,6 +189,22 @@ func TestToggleID(t *testing.T) {
 	}
 }
 
+func TestSetMembership(t *testing.T) {
+	list := setMembership(nil, 5, true)
+	if len(list) != 1 || list[0] != 5 {
+		t.Errorf("add = %v", list)
+	}
+	if got := setMembership(list, 5, true); len(got) != 1 {
+		t.Errorf("add existing = %v", got)
+	}
+	if got := setMembership(list, 7, false); len(got) != 1 {
+		t.Errorf("remove missing = %v", got)
+	}
+	if got := setMembership(list, 5, false); len(got) != 0 {
+		t.Errorf("remove = %v", got)
+	}
+}
+
 func TestTruncateLabel(t *testing.T) {
 	if got := truncateLabel("короткий"); got != "короткий" {
 		t.Errorf("short = %q", got)

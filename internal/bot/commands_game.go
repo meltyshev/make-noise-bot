@@ -1,7 +1,6 @@
 package bot
 
 import (
-	"encoding/json"
 	"fmt"
 	"html"
 	"strings"
@@ -160,57 +159,6 @@ func cmdLink() *Command {
 			} else {
 				c.Reply(texts.NoActiveGame)
 			}
-		},
-	}
-}
-
-func cmdCodeFormats() *Command {
-	apply := func(c *Ctx, input string) {
-		if input == "" {
-			c.Reply(texts.CodeFormatsInvalid)
-			return
-		}
-		if _, ok := c.app.store.Game(); !ok {
-			c.Reply(texts.NoActiveGame)
-			return
-		}
-
-		var formats [][]string
-		if err := json.Unmarshal([]byte(input), &formats); err != nil {
-			c.Reply(texts.CodeFormatsInvalid)
-			return
-		}
-		if formats == nil {
-			formats = [][]string{}
-		}
-		if err := c.app.store.UpdateGame(func(g *store.Game) { g.CodeFormats = formats }); err != nil {
-			c.app.reportError(err)
-			return
-		}
-		c.Reply(texts.Done)
-	}
-
-	return &Command{
-		Name: "codeformats",
-		Init: func(c *Ctx, args string) {
-			if !c.IsManager() {
-				return
-			}
-			if _, ok := c.app.store.Game(); !ok {
-				c.Reply(texts.NoActiveGame)
-				return
-			}
-			if args != "" {
-				c.DelConv()
-				apply(c, args)
-				return
-			}
-			c.SetConv("codeformats")
-			c.Reply(texts.CodeFormatsAsk)
-		},
-		Handle: func(c *Ctx, _ any) {
-			c.DelConv()
-			apply(c, c.Text())
 		},
 	}
 }

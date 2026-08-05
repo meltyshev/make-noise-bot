@@ -2,7 +2,6 @@ package bot
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -364,7 +363,7 @@ var gameConfigFields = map[string]string{
 	"pincode":      texts.GameConfigPincodeAsk,
 	"game_id":      texts.GameConfigGameIDAsk,
 	"league":       texts.GameConfigLeagueAsk,
-	"code_formats": texts.GameConfigFormatsAsk,
+	"code_formats": texts.FormatsManualAsk,
 }
 
 // gcField is the conversation state while the admin types a value for one
@@ -377,7 +376,6 @@ type gcField struct {
 
 func renderGameConfigMenu(d *store.Data) (string, [][]models.InlineKeyboardButton) {
 	cfg := d.GameConfig
-	formatsJSON, _ := json.Marshal(cfg.CodeFormats)
 
 	keyboard := [][]models.InlineKeyboardButton{
 		btnRow(btn(fmt.Sprintf(texts.GameConfigEngineFmt, cfg.Engine), "gc:engine")),
@@ -387,7 +385,7 @@ func renderGameConfigMenu(d *store.Data) (string, [][]models.InlineKeyboardButto
 		btnRow(btn(fmt.Sprintf(texts.GameConfigPincodeFmt, cfg.Pincode), "gc:field:pincode")),
 		btnRow(btn(fmt.Sprintf(texts.GameConfigGameIDFmt, cfg.GameID), "gc:field:game_id")),
 		btnRow(btn(fmt.Sprintf(texts.GameConfigLeagueFmt, cfg.League), "gc:field:league")),
-		btnRow(btn(fmt.Sprintf(texts.GameConfigFormatsFmt, formatsJSON), "gc:field:code_formats")),
+		btnRow(btn(fmt.Sprintf(texts.GameConfigFormatsFmt, formatsLabel(cfg.CodeFormats)), "gc:fmt")),
 		btnRow(btn(fmt.Sprintf(texts.GameConfigSubscribersFmt, len(cfg.Subscribers)), "gc:subs")),
 	}
 	if d.Game != nil {
@@ -397,6 +395,22 @@ func renderGameConfigMenu(d *store.Data) (string, [][]models.InlineKeyboardButto
 	}
 	keyboard = append(keyboard, btnRow(btn(texts.ButtonReset, "gc:reset"), btn(texts.ButtonClose, "gc:close")))
 	return texts.SettingsTitle, keyboard
+}
+
+func renderFormatsMenu(d *store.Data) (string, [][]models.InlineKeyboardButton) {
+	var keyboard [][]models.InlineKeyboardButton
+	for i, preset := range formatPresets {
+		label := preset.Label
+		if formatsEqual(d.GameConfig.CodeFormats, preset.Formats) {
+			label += " ✓"
+		}
+		keyboard = append(keyboard, btnRow(btn(label, fmt.Sprintf("gc:fmtp:%d", i))))
+	}
+	keyboard = append(keyboard,
+		btnRow(btn(texts.ButtonManual, "gc:fmtm")),
+		btnRow(btn(texts.ButtonBack, "gc:menu")),
+	)
+	return texts.FormatsTitle, keyboard
 }
 
 func renderEngineChoice() (string, [][]models.InlineKeyboardButton) {
@@ -499,6 +513,32 @@ func (a *App) gameConfigCallback(c *cb, args []string) {
 		if err := a.send(c.ctx, c.chatID, ask); err != nil {
 			a.reportError(err)
 		}
+	case "fmt":
+		c.answer("")
+		editWith(renderFormatsMenu)
+	case "fmtp":
+		if len(args) < 2 {
+			c.answer("")
+			return
+		}
+		idx, ok := argID(args, 1)
+		if !ok || idx < 0 || int(idx) >= len(formatPresets) {
+			c.answer("")
+			return
+		}
+		if err := a.applyFormats(formatPresets[idx].Formats); err != nil {
+			a.reportError(err)
+			c.answer("")
+			return
+		}
+		c.answer(texts.Done)
+		editWith(renderFormatsMenu)
+	case "fmtm":
+		a.conv.Set(c.query.From.ID, c.chatID, "gameconfig", gcField{Field: "code_formats", ChatID: c.chatID, MsgID: c.msgID})
+		c.answer("")
+		if err := a.send(c.ctx, c.chatID, texts.FormatsManualAsk); err != nil {
+			a.reportError(err)
+		}
 	case "subs":
 		c.answer("")
 		editWith(func(d *store.Data) (string, [][]models.InlineKeyboardButton) {
@@ -510,8 +550,20 @@ func (a *App) gameConfigCallback(c *cb, args []string) {
 			c.answer("")
 			return
 		}
+		// The toggle mirrors into the running game so changes apply without
+		// a restart; chats subscribed via /subscribe only are untouched.
 		err := a.store.Update(func(d *store.Data) {
 			d.GameConfig.Subscribers = toggleID(d.GameConfig.Subscribers, id)
+			if d.Game != nil {
+				subscribed := false
+				for _, item := range d.GameConfig.Subscribers {
+					if item == id {
+						subscribed = true
+						break
+					}
+				}
+				d.Game.Subscribers = setMembership(d.Game.Subscribers, id, subscribed)
+			}
 		})
 		if err != nil {
 			a.reportError(err)
@@ -597,6 +649,21 @@ func toggleID(list []int64, id int64) []int64 {
 		}
 	}
 	return append(list, id)
+}
+
+func setMembership(list []int64, id int64, present bool) []int64 {
+	for i, item := range list {
+		if item == id {
+			if present {
+				return list
+			}
+			return append(list[:i], list[i+1:]...)
+		}
+	}
+	if present {
+		return append(list, id)
+	}
+	return list
 }
 
 func sortByName(d *store.Data, ids map[int64]bool) []int64 {

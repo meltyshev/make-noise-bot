@@ -26,7 +26,6 @@ func (a *App) registerCommands() {
 		cmdUserID(),
 		cmdAvatar(),
 		cmdGame(),
-		cmdCodeFormats(),
 		cmdRestrict(),
 		cmdBruteForce(),
 		cmdSubscribe(),

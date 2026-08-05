@@ -69,8 +69,9 @@ binary), `/intersection`, `/letterstonumbers`, `/numberstoletters`,
 `/coordinates`, `/help`, `/cancel`.
 
 Game: `/question`, `/notes`, `/link`, `/rating`, `/clearrating`,
-`/codeformats`, `/restrict`, `/bruteforce`, `/pinlevel`, `/unpinlevel`,
-`/subscribe`, `/game`, `/gameconfig`.
+`/restrict`, `/bruteforce`, `/pinlevel`, `/unpinlevel`, `/subscribe`,
+`/game`, `/gameconfig` (code formats are preset buttons there and apply to a
+running game immediately).
 
 Admin: `/permission`, `/allow`, `/forbid`, `/chats`, `/drop`, `/write`,
 `/config` (managers, leave mode), `/chatid`, `/userid`, `/avatar`.
