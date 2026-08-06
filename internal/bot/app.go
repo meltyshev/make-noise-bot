@@ -18,6 +18,7 @@ import (
 
 	"github.com/meltyshev/make-noise-bot/internal/config"
 	"github.com/meltyshev/make-noise-bot/internal/game"
+	"github.com/meltyshev/make-noise-bot/internal/secret"
 	"github.com/meltyshev/make-noise-bot/internal/store"
 )
 
@@ -177,7 +178,7 @@ func (a *App) reportError(err error) {
 		return
 	}
 
-	text := err.Error()
+	text := secret.Redact(err.Error())
 	if len(text) > 3500 {
 		text = text[:3500] + "..."
 	}

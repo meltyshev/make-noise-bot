@@ -12,6 +12,7 @@ import (
 
 	"github.com/meltyshev/make-noise-bot/internal/bot"
 	"github.com/meltyshev/make-noise-bot/internal/config"
+	"github.com/meltyshev/make-noise-bot/internal/secret"
 	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/updater"
 )
@@ -33,7 +34,7 @@ func main() {
 		return
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := slog.New(secret.NewLogHandler(slog.NewTextHandler(os.Stderr, nil)))
 
 	cfg, err := loadConfig(*configPath, *token)
 	if err != nil {

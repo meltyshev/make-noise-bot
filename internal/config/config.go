@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/meltyshev/make-noise-bot/internal/secret"
 )
 
 const DefaultUpdateInterval = 5
@@ -39,6 +41,7 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("parse config %s: %w", path, err)
 	}
 	cfg.applyDefaults()
+	secret.Register(cfg.Token)
 	return cfg, nil
 }
 
@@ -75,6 +78,7 @@ func Create(path, token string) (*Config, error) {
 		path:                  path,
 	}
 	cfg.applyDefaults()
+	secret.Register(cfg.Token)
 	if err := cfg.Save(); err != nil {
 		return nil, err
 	}
@@ -115,6 +119,7 @@ func Wizard(path string, in io.Reader, out io.Writer) (*Config, error) {
 			path:                  path,
 		}
 		cfg.applyDefaults()
+		secret.Register(cfg.Token)
 		if err := cfg.Save(); err != nil {
 			return nil, err
 		}
@@ -129,7 +134,7 @@ func checkToken(token string) (string, error) {
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Get("https://api.telegram.org/bot" + url.PathEscape(token) + "/getMe")
 	if err != nil {
-		return "", err
+		return "", stripURL(err)
 	}
 	defer resp.Body.Close()
 
@@ -147,4 +152,13 @@ func checkToken(token string) (string, error) {
 		return "", errors.New(payload.Description)
 	}
 	return payload.Result.Username, nil
+}
+
+// stripURL drops the request URL from a transport error: it carries the token.
+func stripURL(err error) error {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return fmt.Errorf("%s: %w", urlErr.Op, urlErr.Err)
+	}
+	return err
 }
