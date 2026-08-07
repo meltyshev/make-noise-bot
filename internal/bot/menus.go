@@ -97,6 +97,28 @@ func (a *App) restrictCallback(c *cb) {
 	c.edit(c.query.Message.Message.Text+"\n\n"+texts.RestrictOff, nil)
 }
 
+// stopGameCallback ends the game from the button the updater attaches when
+// the engine stops serving a level.
+func (a *App) stopGameCallback(c *cb) {
+	// The button outlives the message: a finished game, or a level served
+	// again, leaves nothing for an old tap to stop.
+	current, ok := a.store.Game()
+	if !ok || current.LevelNumber != nil {
+		c.answer(texts.AlreadyProcessed)
+		c.edit(c.query.Message.Message.Text, nil)
+		return
+	}
+
+	if err := a.store.Update(func(d *store.Data) { d.Game = nil }); err != nil {
+		a.reportError(err)
+		c.answer("")
+		return
+	}
+
+	c.answer(texts.GameOver)
+	c.edit(c.query.Message.Message.Text+"\n\n"+texts.GameOver, nil)
+}
+
 // /config: managers and leave mode.
 
 func renderConfigMenu(d *store.Data) (string, [][]models.InlineKeyboardButton) {

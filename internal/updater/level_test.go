@@ -112,6 +112,21 @@ func TestTimerRestarted(t *testing.T) {
 	}
 }
 
+func TestLevelGone(t *testing.T) {
+	if !levelGone(at(5, "aaa", 1800), levelState{}) {
+		t.Error("a level that stopped being served is gone")
+	}
+	if levelGone(levelState{}, levelState{}) {
+		t.Error("a game without a level yet has nothing to lose")
+	}
+	if levelGone(at(5, "aaa", 1800), at(6, "bbb", 3)) {
+		t.Error("a new level is not a gone level")
+	}
+	if levelGone(levelState{}, at(6, "bbb", 3)) {
+		t.Error("a level appearing is not a gone level")
+	}
+}
+
 func TestSameLevel(t *testing.T) {
 	if !sameLevel(at(5, "aaa", 10), at(5, "aaa", 10)) {
 		t.Error("identical states differ")

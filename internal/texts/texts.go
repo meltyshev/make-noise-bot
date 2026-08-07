@@ -89,10 +89,13 @@ const (
 // Updater broadcasts.
 const (
 	LevelUp          = "АП!"
+	LevelGone        = "Уровня больше нет."
 	ButtonAllowCodes = "Разрешить ввод кодов"
-	// CallbackAllowCodes is not shown to anyone; it lives here so the
+	ButtonStopGame   = "Завершить игру"
+	// The callback data is not shown to anyone; it lives here so the
 	// updater and the bot agree on it.
 	CallbackAllowCodes = "res:off"
+	CallbackStopGame   = "gm:stop"
 	HintFmt            = "Подсказка %d:\n\n%s"
 	SpoilerSolved      = "Спойлер %d - АП!"
 )

@@ -86,6 +86,8 @@ func (u *Updater) tick(ctx context.Context) {
 	currentSolved := g.SolvedSpoilers
 
 	newLevel := isNewLevel(previous, current)
+	gone := levelGone(previous, current)
+
 	if !sameLevel(previous, current) {
 		err := u.store.UpdateGame(func(g *store.Game) {
 			g.LevelNumber = current.Number
@@ -110,9 +112,7 @@ func (u *Updater) tick(ctx context.Context) {
 		// carries the button to lift it.
 		var markup models.ReplyMarkup
 		if g.Restricted {
-			markup = &models.InlineKeyboardMarkup{InlineKeyboard: [][]models.InlineKeyboardButton{{
-				{Text: texts.ButtonAllowCodes, CallbackData: texts.CallbackAllowCodes},
-			}}}
+			markup = buttonRow(texts.ButtonAllowCodes, texts.CallbackAllowCodes)
 		}
 		u.broadcastWith(ctx, wantLevelUp, texts.LevelUp, false, markup)
 
@@ -122,6 +122,10 @@ func (u *Updater) tick(ctx context.Context) {
 		if notes := snap.Notes(); notes != "" {
 			u.broadcast(ctx, wantNotes, notes, true)
 		}
+	}
+
+	if gone {
+		u.broadcastWith(ctx, wantLevelUp, texts.LevelGone, false, buttonRow(texts.ButtonStopGame, texts.CallbackStopGame))
 	}
 
 	hintNumber, hintText := snap.Hint()
@@ -150,6 +154,12 @@ func (u *Updater) tick(ctx context.Context) {
 			u.broadcast(ctx, wantSpoilers, fmt.Sprintf(texts.SpoilerSolved, spoiler), false)
 		}
 	}
+}
+
+func buttonRow(label, data string) models.ReplyMarkup {
+	return &models.InlineKeyboardMarkup{InlineKeyboard: [][]models.InlineKeyboardButton{{
+		{Text: label, CallbackData: data},
+	}}}
 }
 
 type wants func(store.Subscription) bool

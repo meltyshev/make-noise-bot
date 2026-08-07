@@ -40,6 +40,12 @@ func isNewLevel(previous, current levelState) bool {
 	return signals >= 2
 }
 
+// levelGone reports the moment the engine stops serving a level. A failed
+// request never gets here, so an empty answer is the engine's own word.
+func levelGone(previous, current levelState) bool {
+	return previous.Number != nil && current.Number == nil
+}
+
 func sameLevel(previous, current levelState) bool {
 	return intPtrEqual(previous.Number, current.Number) &&
 		previous.Task == current.Task &&
