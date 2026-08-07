@@ -2,6 +2,7 @@ package htmltext
 
 import (
 	"html"
+	"regexp"
 	"strings"
 
 	"github.com/meltyshev/make-noise-bot/internal/geo"
@@ -86,6 +87,29 @@ func rewriteGeoHref(tag string, link func(lat, lon float64) string) string {
 		return "<a>"
 	}
 	return `<a href="` + html.EscapeString(link(lat, lon)) + `">`
+}
+
+var bareURLRe = regexp.MustCompile(`https?://[^\s<>"']+`)
+
+// Links returns the URLs a fragment already carries, in order: link targets
+// first, then plain URLs in the text. Call it before LinkCoordinates to keep
+// the coordinate links out.
+func Links(text string) []string {
+	var links []string
+	for _, tok := range tokenize(text) {
+		if tok.isTag {
+			if !tok.closing && tok.name == "a" {
+				if href, ok := hrefOf(tok.raw); ok {
+					links = append(links, html.UnescapeString(href))
+				}
+			}
+			continue
+		}
+		for _, found := range bareURLRe.FindAllString(html.UnescapeString(tok.raw), -1) {
+			links = append(links, strings.TrimRight(found, ".,;:!?)"))
+		}
+	}
+	return links
 }
 
 func hrefOf(tag string) (string, bool) {

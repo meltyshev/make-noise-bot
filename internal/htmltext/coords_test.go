@@ -82,6 +82,54 @@ func TestLinkCoordinates(t *testing.T) {
 	}
 }
 
+func TestLinks(t *testing.T) {
+	text := `до <a href="https://example.com/one">линк</a> и картинка https://example.com/two.png, ` +
+		`и <a href="https://example.com/three">еще</a>`
+
+	links := Links(text)
+	want := []string{"https://example.com/one", "https://example.com/two.png", "https://example.com/three"}
+	if len(links) != len(want) {
+		t.Fatalf("Links = %q, want %q", links, want)
+	}
+	for i, link := range links {
+		if link != want[i] {
+			t.Errorf("link %d = %q, want %q", i, link, want[i])
+		}
+	}
+}
+
+func TestLinksSkipCoordinateLinks(t *testing.T) {
+	converted := Convert(`<p>55.058638, 82.974920</p><p><img src="https://example.com/pic.png"/></p>`, "https://example.com")
+
+	own := Links(converted)
+	if len(own) != 1 || own[0] != "https://example.com/pic.png" {
+		t.Fatalf("own links = %q", own)
+	}
+
+	// After linking, the map URL is in the text but was never in own.
+	linked := LinkCoordinates(converted, testLink)
+	if !strings.Contains(linked, "maps.example") {
+		t.Fatal("coordinates were not linked")
+	}
+	for _, link := range own {
+		if strings.Contains(link, "maps.example") {
+			t.Errorf("a coordinate link leaked into own links: %q", link)
+		}
+	}
+}
+
+func TestLinksHandleEntities(t *testing.T) {
+	text := `<a href="https://example.com/a?x=1&amp;y=2">линк</a> и https://example.com/b?p=1&amp;q=2`
+
+	links := Links(text)
+	if len(links) != 2 {
+		t.Fatalf("Links = %q, want 2", links)
+	}
+	if links[0] != "https://example.com/a?x=1&y=2" || links[1] != "https://example.com/b?p=1&q=2" {
+		t.Errorf("Links = %q, want unescaped urls", links)
+	}
+}
+
 func TestLinkCoordinatesWithoutLinker(t *testing.T) {
 	text := "56.838011, 60.597465"
 	if got := LinkCoordinates(text, nil); got != text {

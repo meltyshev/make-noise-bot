@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"html"
+	"strings"
 
 	tgbot "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -20,13 +21,17 @@ const limit = 4000
 // HTML sends a converted fragment, linking coordinates with mapLink and
 // splitting anything over the length limit.
 func HTML(ctx context.Context, b *tgbot.Bot, chatID int64, text string, mapLink func(lat, lon float64) string, reply *models.ReplyParameters) error {
+	// The engine's own links are collected first, so the coordinate links
+	// added below never become the preview.
+	own := htmltext.Links(text)
 	text = htmltext.LinkCoordinates(text, mapLink)
 
 	for i, part := range htmltext.Split(text, limit) {
 		params := &tgbot.SendMessageParams{
-			ChatID:    chatID,
-			Text:      part,
-			ParseMode: models.ParseModeHTML,
+			ChatID:             chatID,
+			Text:               part,
+			ParseMode:          models.ParseModeHTML,
+			LinkPreviewOptions: preview(part, own),
 		}
 		if i == 0 {
 			params.ReplyParameters = reply
@@ -42,6 +47,21 @@ func HTML(ctx context.Context, b *tgbot.Bot, chatID int64, text string, mapLink 
 		}
 	}
 	return nil
+}
+
+// preview points the link preview at the first of the engine's own links in
+// the part, and turns it off when the part has none.
+func preview(part string, own []string) *models.LinkPreviewOptions {
+	plain := html.UnescapeString(part)
+	for _, link := range own {
+		if strings.Contains(plain, link) {
+			target := link
+			return &models.LinkPreviewOptions{URL: &target}
+		}
+	}
+
+	disabled := true
+	return &models.LinkPreviewOptions{IsDisabled: &disabled}
 }
 
 func sendUnparsed(ctx context.Context, b *tgbot.Bot, chatID int64, part string) error {
