@@ -16,6 +16,8 @@ func testData() *store.Data {
 		Chats: map[int64]*store.Chat{
 			10:   {ID: 10, Type: "private", Permission: store.PermissionAllowed, FirstName: "Вася"},
 			20:   {ID: 20, Type: "private", Permission: store.PermissionRequested, FirstName: "Аня"},
+			40:   {ID: 40, Type: "private", Permission: store.PermissionAllowed, FirstName: "Дима"},
+			50:   {ID: 50, Type: "private", Permission: store.PermissionForbidden, FirstName: "Гоша"},
 			-100: {ID: -100, Type: "supergroup", Permission: store.PermissionAllowed, Title: "Команда"},
 			-200: {ID: -200, Type: "group", Permission: store.PermissionForbidden, Title: "Чужие"},
 		},
@@ -69,20 +71,32 @@ func TestRenderConfigMenu(t *testing.T) {
 func TestRenderManagers(t *testing.T) {
 	_, keyboard := renderManagers(testData())
 
-	// Managers list shows private chats and known picked users as toggles.
 	if b := findButton(t, keyboard, "Вася ✓"); b.CallbackData != "cfg:mgrt:10" {
 		t.Errorf("manager toggle = %q", b.CallbackData)
 	}
-	if b := findButton(t, keyboard, "Аня"); b.CallbackData != "cfg:mgrt:20" {
+	if b := findButton(t, keyboard, "Дима"); b.CallbackData != "cfg:mgrt:40" {
 		t.Errorf("candidate toggle = %q", b.CallbackData)
 	}
 	findButton(t, keyboard, "Добавить")
 
-	// Group chats are not manager candidates.
+	// Only allowed private chats are candidates.
 	for _, button := range flatButtons(keyboard) {
-		if strings.Contains(button.Text, "Команда") {
-			t.Errorf("group chat offered as manager: %q", button.Text)
+		for _, hidden := range []string{"Аня", "Гоша", "Команда", "Чужие"} {
+			if strings.Contains(button.Text, hidden) {
+				t.Errorf("%s offered as manager: %q", hidden, button.Text)
+			}
 		}
+	}
+}
+
+func TestRenderManagersKeepsExistingManagers(t *testing.T) {
+	d := testData()
+	// A manager whose chat was later forbidden must stay removable.
+	d.Managers = append(d.Managers, 50)
+
+	_, keyboard := renderManagers(d)
+	if b := findButton(t, keyboard, "Гоша ✓"); b.CallbackData != "cfg:mgrt:50" {
+		t.Errorf("forbidden manager toggle = %q", b.CallbackData)
 	}
 }
 

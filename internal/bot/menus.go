@@ -91,9 +91,11 @@ func renderManagers(d *store.Data) (string, [][]models.InlineKeyboardButton) {
 		managers[id] = true
 	}
 
+	// Candidates are allowed private chats; current managers stay listed so
+	// they can be removed.
 	ids := map[int64]bool{}
 	for id, chat := range d.Chats {
-		if chat.Type == "private" {
+		if chat.Type == "private" && chat.Permission == store.PermissionAllowed {
 			ids[id] = true
 		}
 	}
