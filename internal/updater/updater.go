@@ -13,6 +13,7 @@ import (
 	tgbot "github.com/go-telegram/bot"
 
 	"github.com/meltyshev/make-noise-bot/internal/game"
+	"github.com/meltyshev/make-noise-bot/internal/geo"
 	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/texts"
 	"github.com/meltyshev/make-noise-bot/internal/tgsend"
@@ -158,7 +159,7 @@ func (u *Updater) broadcast(ctx context.Context, want wants, text string, html b
 func (u *Updater) sendTo(ctx context.Context, chatID int64, text string, html bool) {
 	var err error
 	if html {
-		err = tgsend.HTML(ctx, u.tg, chatID, text, nil)
+		err = tgsend.HTML(ctx, u.tg, chatID, text, geo.Linker(u.store.MapService()), nil)
 	} else {
 		_, err = u.tg.SendMessage(ctx, &tgbot.SendMessageParams{ChatID: chatID, Text: text})
 	}

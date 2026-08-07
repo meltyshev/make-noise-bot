@@ -117,9 +117,12 @@ func Convert(fragment, baseURL string) string {
 				}
 			case "a":
 				if href, ok := attr(tok, "href"); ok {
-					// Telegram forbids nested links.
+					// Telegram forbids nested links and rejects messages
+					// with link protocols it does not know.
 					closeTag("a")
-					open(openTag{name: "a", raw: `<a href="` + html.EscapeString(makeURL(href)) + `">`})
+					if target := makeURL(href); supportedLink(target) {
+						open(openTag{name: "a", raw: `<a href="` + html.EscapeString(target) + `">`})
+					}
 				}
 			case "img":
 				if src, ok := attr(tok, "src"); ok {
@@ -171,6 +174,17 @@ func Convert(fragment, baseURL string) string {
 	text = spacesBeforeNL.ReplaceAllString(text, "\n")
 	text = extraNewlinesRe.ReplaceAllString(text, "\n\n")
 	return strings.TrimSpace(text)
+}
+
+// geo: links stay for LinkCoordinates to rewrite.
+func supportedLink(target string) bool {
+	lower := strings.ToLower(target)
+	for _, scheme := range []string{"http://", "https://", "tg://", "geo:"} {
+		if strings.HasPrefix(lower, scheme) {
+			return true
+		}
+	}
+	return false
 }
 
 // StripTags returns the plain text of a converted fragment.

@@ -1,12 +1,15 @@
 package bot
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/go-telegram/bot/models"
 
+	"github.com/meltyshev/make-noise-bot/internal/geo"
 	"github.com/meltyshev/make-noise-bot/internal/store"
+	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
 
 func testData() *store.Data {
@@ -65,6 +68,32 @@ func TestRenderConfigMenu(t *testing.T) {
 	}
 	if b := findButton(t, keyboard, "включен"); b.CallbackData != "cfg:leave" {
 		t.Errorf("leave callback = %q", b.CallbackData)
+	}
+	// An empty setting shows the default service.
+	label := fmt.Sprintf(texts.MapServiceFmt, geo.DefaultService.Label())
+	if b := findButton(t, keyboard, label); b.CallbackData != "cfg:maps" {
+		t.Errorf("maps callback = %q", b.CallbackData)
+	}
+	if len([]rune(label)) > 48 {
+		t.Errorf("map row does not fit a button: %q", label)
+	}
+}
+
+func TestRenderMapServices(t *testing.T) {
+	d := testData()
+	d.MapService = string(geo.Google)
+
+	_, keyboard := renderMapServices(d)
+	if b := findButton(t, keyboard, mark(true, geo.Google.Label())); b.CallbackData != "cfg:setmap:google" {
+		t.Errorf("active service = %q", b.CallbackData)
+	}
+	if b := findButton(t, keyboard, geo.OSM.Label()); b.CallbackData != "cfg:setmap:osm" {
+		t.Errorf("other service = %q", b.CallbackData)
+	}
+	for _, button := range flatButtons(keyboard) {
+		if button.CallbackData == "cfg:setmap:yandex" && strings.HasPrefix(button.Text, "✓") {
+			t.Errorf("inactive service marked: %q", button.Text)
+		}
 	}
 }
 

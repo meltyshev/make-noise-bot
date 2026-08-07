@@ -147,6 +147,12 @@ func (s *Store) LeaveMode() bool {
 	return on
 }
 
+func (s *Store) MapService() string {
+	var service string
+	s.View(func(d *Data) { service = d.MapService })
+	return service
+}
+
 func (s *Store) UpdateGame(f func(g *Game)) error {
 	return s.Update(func(d *Data) {
 		if d.Game != nil {

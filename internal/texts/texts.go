@@ -114,6 +114,8 @@ const (
 	SettingsTitle    = "Настройки:"
 	ManagersTitle    = "Менеджеры:"
 	ManagersCountFmt = "Менеджеры: %d"
+	MapServiceFmt    = "Карты для координат: %s"
+	MapServiceTitle  = "Карты для координат:"
 	LeaveModeFmt     = "Режим выхода: %s"
 	LeaveModeOnWord  = "включен"
 	LeaveModeOffWord = "выключен"

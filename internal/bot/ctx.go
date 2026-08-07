@@ -8,6 +8,7 @@ import (
 	tgbot "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
+	"github.com/meltyshev/make-noise-bot/internal/geo"
 	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/texts"
 	"github.com/meltyshev/make-noise-bot/internal/tgsend"
@@ -83,7 +84,8 @@ func (c *Ctx) Replyf(format string, args ...any) {
 }
 
 func (c *Ctx) ReplyHTML(text string) {
-	if err := tgsend.HTML(c.ctx, c.app.tg, c.ChatID(), text, c.replyParams()); err != nil {
+	mapLink := geo.Linker(c.app.store.MapService())
+	if err := tgsend.HTML(c.ctx, c.app.tg, c.ChatID(), text, mapLink, c.replyParams()); err != nil {
 		c.app.reportError(fmt.Errorf("send html: %w", err))
 	}
 }

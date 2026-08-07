@@ -9,6 +9,7 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	"github.com/meltyshev/make-noise-bot/internal/game"
+	"github.com/meltyshev/make-noise-bot/internal/geo"
 	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
@@ -80,9 +81,31 @@ func renderConfigMenu(d *store.Data) (string, [][]models.InlineKeyboardButton) {
 	}
 	return texts.SettingsTitle, [][]models.InlineKeyboardButton{
 		btnRow(btn(fmt.Sprintf(texts.ManagersCountFmt, len(d.Managers)), "cfg:mgr")),
+		btnRow(btn(fmt.Sprintf(texts.MapServiceFmt, mapService(d).Label()), "cfg:maps")),
 		btnRow(btn(fmt.Sprintf(texts.LeaveModeFmt, leaveWord), "cfg:leave")),
 		btnRow(btn(texts.ButtonReset, "cfg:reset"), btn(texts.ButtonClose, "cfg:close")),
 	}
+}
+
+func mapService(d *store.Data) geo.Service {
+	service := geo.Service(d.MapService)
+	if !service.Valid() {
+		return geo.DefaultService
+	}
+	return service
+}
+
+func renderMapServices(d *store.Data) (string, [][]models.InlineKeyboardButton) {
+	current := mapService(d)
+
+	var keyboard [][]models.InlineKeyboardButton
+	for _, service := range geo.Services {
+		keyboard = append(keyboard, btnRow(
+			btn(mark(service == current, service.Label()), "cfg:setmap:"+string(service)),
+		))
+	}
+	keyboard = append(keyboard, btnRow(btn(texts.ButtonBack, "cfg:menu")))
+	return texts.MapServiceTitle, keyboard
 }
 
 func renderManagers(d *store.Data) (string, [][]models.InlineKeyboardButton) {
@@ -152,6 +175,7 @@ func (a *App) configCallback(c *cb, args []string) {
 		err := a.store.Update(func(d *store.Data) {
 			d.Managers = []int64{}
 			d.LeaveMode = false
+			d.MapService = ""
 		})
 		if err != nil {
 			a.reportError(err)
@@ -163,6 +187,21 @@ func (a *App) configCallback(c *cb, args []string) {
 	case "close":
 		c.answer("")
 		c.edit(texts.Done, nil)
+	case "maps":
+		c.answer("")
+		editWith(renderMapServices)
+	case "setmap":
+		if len(args) < 2 || !geo.Service(args[1]).Valid() {
+			c.answer("")
+			return
+		}
+		if err := a.store.Update(func(d *store.Data) { d.MapService = args[1] }); err != nil {
+			a.reportError(err)
+			c.answer("")
+			return
+		}
+		c.answer("")
+		editWith(renderConfigMenu)
 	case "mgr":
 		c.answer("")
 		editWith(renderManagers)

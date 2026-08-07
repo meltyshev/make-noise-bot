@@ -17,7 +17,11 @@ import (
 // Telegram's message limit is 4096 UTF-16 units; keep a margin.
 const limit = 4000
 
-func HTML(ctx context.Context, b *tgbot.Bot, chatID int64, text string, reply *models.ReplyParameters) error {
+// HTML sends a converted fragment, linking coordinates with mapLink and
+// splitting anything over the length limit.
+func HTML(ctx context.Context, b *tgbot.Bot, chatID int64, text string, mapLink func(lat, lon float64) string, reply *models.ReplyParameters) error {
+	text = htmltext.LinkCoordinates(text, mapLink)
+
 	for i, part := range htmltext.Split(text, limit) {
 		params := &tgbot.SendMessageParams{
 			ChatID:    chatID,

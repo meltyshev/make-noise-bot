@@ -75,7 +75,12 @@ Game: `/question`, `/notes`, `/link`, `/rating`, `/clearrating`,
 running game immediately).
 
 Admin: `/permission`, `/allow`, `/forbid`, `/chats`, `/drop`, `/write`,
-`/config` (managers, leave mode), `/chatid`, `/userid`, `/avatar`.
+`/config` (managers, map service, leave mode), `/chatid`, `/userid`,
+`/avatar`.
+
+Coordinates in level texts, notes and hints become links to the map service
+picked in `/config` (Яндекс.Карты, Google Maps, 2ГИС or OpenStreetMap), so
+they open the map app on a phone.
 
 ## Configuration
 

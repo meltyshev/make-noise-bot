@@ -169,6 +169,9 @@ type Data struct {
 	SchemaVersion int     `json:"schema_version"`
 	Managers      []int64 `json:"managers"`
 	LeaveMode     bool    `json:"leave_mode,omitempty"`
+	// MapService names the map links coordinates point to; empty means the
+	// default.
+	MapService string `json:"map_service,omitempty"`
 	// UserNames remembers display names of users picked via the manager
 	// picker, which may have no chat with the bot.
 	UserNames  map[int64]string  `json:"user_names,omitempty"`
