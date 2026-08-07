@@ -18,30 +18,43 @@ import (
 // Telegram's message limit is 4096 UTF-16 units; keep a margin.
 const limit = 4000
 
-// HTML sends a converted fragment, linking coordinates with mapLink and
-// splitting anything over the length limit.
-func HTML(ctx context.Context, b *tgbot.Bot, chatID int64, text string, mapLink func(lat, lon float64) string, reply *models.ReplyParameters) error {
+type Message struct {
+	ChatID  int64
+	Text    string
+	MapLink func(lat, lon float64) string
+	Reply   *models.ReplyParameters
+	Markup  models.ReplyMarkup
+}
+
+// HTML sends a converted fragment, linking coordinates and splitting
+// anything over the length limit. The reply lands on the first part and the
+// buttons on the last one.
+func HTML(ctx context.Context, b *tgbot.Bot, msg Message) error {
 	// The engine's own links are collected first, so the coordinate links
 	// added below never become the preview.
-	own := htmltext.Links(text)
-	text = htmltext.LinkCoordinates(text, mapLink)
+	own := htmltext.Links(msg.Text)
+	text := htmltext.LinkCoordinates(msg.Text, msg.MapLink)
 
-	for i, part := range htmltext.Split(text, limit) {
+	parts := htmltext.Split(text, limit)
+	for i, part := range parts {
 		params := &tgbot.SendMessageParams{
-			ChatID:             chatID,
+			ChatID:             msg.ChatID,
 			Text:               part,
 			ParseMode:          models.ParseModeHTML,
 			LinkPreviewOptions: preview(part, own),
 		}
 		if i == 0 {
-			params.ReplyParameters = reply
+			params.ReplyParameters = msg.Reply
+		}
+		if i == len(parts)-1 {
+			params.ReplyMarkup = msg.Markup
 		}
 
 		if _, err := b.SendMessage(ctx, params); err != nil {
 			if !errors.Is(err, tgbot.ErrorBadRequest) {
 				return err
 			}
-			if err := sendUnparsed(ctx, b, chatID, part); err != nil {
+			if err := sendUnparsed(ctx, b, msg.ChatID, part); err != nil {
 				return err
 			}
 		}

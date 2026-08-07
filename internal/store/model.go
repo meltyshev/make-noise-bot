@@ -38,38 +38,19 @@ func (c *Chat) DisplayName() string {
 	return name
 }
 
-// Subscription is one chat and the kinds of updates it receives.
+// Subscription is a chat that receives updates. An events-only chat gets the
+// short notices without the level texts.
 type Subscription struct {
-	ChatID   int64 `json:"chat_id"`
-	LevelUp  bool  `json:"level_up,omitempty"`
-	Hints    bool  `json:"hints,omitempty"`
-	Spoilers bool  `json:"spoilers,omitempty"`
-	Question bool  `json:"question,omitempty"`
-	Notes    bool  `json:"notes,omitempty"`
+	ChatID     int64 `json:"chat_id"`
+	EventsOnly bool  `json:"events_only,omitempty"`
 }
 
 func AllUpdates(chatID int64) Subscription {
-	return Subscription{
-		ChatID:   chatID,
-		LevelUp:  true,
-		Hints:    true,
-		Spoilers: true,
-		Question: true,
-		Notes:    true,
-	}
+	return Subscription{ChatID: chatID}
 }
 
-// Notifications are the short updates: what happened, without level texts.
-func Notifications(chatID int64) Subscription {
-	return Subscription{ChatID: chatID, LevelUp: true, Hints: true, Spoilers: true}
-}
-
-func (s Subscription) Any() bool {
-	return s.LevelUp || s.Hints || s.Spoilers || s.Question || s.Notes
-}
-
-func (s Subscription) All() bool {
-	return s.LevelUp && s.Hints && s.Spoilers && s.Question && s.Notes
+func OnlyEvents(chatID int64) Subscription {
+	return Subscription{ChatID: chatID, EventsOnly: true}
 }
 
 type Subscriptions []Subscription
@@ -83,11 +64,7 @@ func (list Subscriptions) Find(chatID int64) (Subscription, bool) {
 	return Subscription{ChatID: chatID}, false
 }
 
-// Set stores a subscription, dropping it when it receives nothing.
 func (list Subscriptions) Set(sub Subscription) Subscriptions {
-	if !sub.Any() {
-		return list.Remove(sub.ChatID)
-	}
 	for i, item := range list {
 		if item.ChatID == sub.ChatID {
 			list[i] = sub

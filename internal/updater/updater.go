@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	tgbot "github.com/go-telegram/bot"
@@ -108,24 +109,18 @@ func (u *Updater) tick(ctx context.Context) {
 		currentHint = nil
 		currentSolved = nil
 
+		question, notes := snap.Question(), snap.Notes()
 		// A restriction outlives the level it was set on, so the new level
 		// carries the button to lift it.
 		var markup models.ReplyMarkup
 		if g.Restricted {
 			markup = buttonRow(texts.ButtonAllowCodes, texts.CallbackAllowCodes)
 		}
-		u.broadcastWith(ctx, wantLevelUp, texts.LevelUp, false, markup)
-
-		if question := snap.Question(); question != "" {
-			u.broadcast(ctx, wantQuestion, question, true)
-		}
-		if notes := snap.Notes(); notes != "" {
-			u.broadcast(ctx, wantNotes, notes, true)
-		}
+		u.announce(ctx, levelMessage(question, notes), texts.LevelUp, markup)
 	}
 
 	if gone {
-		u.broadcastWith(ctx, wantLevelUp, texts.LevelGone, false, buttonRow(texts.ButtonStopGame, texts.CallbackStopGame))
+		u.announce(ctx, texts.LevelGone, texts.LevelGone, buttonRow(texts.ButtonStopGame, texts.CallbackStopGame))
 	}
 
 	hintNumber, hintText := snap.Hint()
@@ -139,7 +134,11 @@ func (u *Updater) tick(ctx context.Context) {
 			return
 		}
 		if hintPtr != nil {
-			u.broadcast(ctx, wantHints, fmt.Sprintf(texts.HintFmt, hintNumber, hintText), true)
+			u.announce(ctx,
+				fmt.Sprintf(texts.HintFmt, hintNumber, hintText),
+				fmt.Sprintf(texts.HintNotice, hintNumber),
+				nil,
+			)
 		}
 	}
 
@@ -160,13 +159,44 @@ func (u *Updater) tick(ctx context.Context) {
 		for _, number := range newSolved {
 			notice := fmt.Sprintf(texts.SpoilerSolved, number)
 			// Engines that publish the spoiler send it along, like a task.
+			full := notice
 			if text := spoilerText(spoilers, number); text != "" {
-				u.broadcast(ctx, wantSpoilers, notice+"\n\n"+text, true)
-			} else {
-				u.broadcast(ctx, wantSpoilers, notice, false)
+				full = notice + "\n\n" + text
 			}
+			u.announce(ctx, full, notice, nil)
 		}
 	}
+}
+
+// announce sends each chat the version it subscribed to: the full message,
+// or the short notice for events-only chats.
+func (u *Updater) announce(ctx context.Context, full, notice string, markup models.ReplyMarkup) {
+	g, ok := u.store.Game()
+	if !ok {
+		return
+	}
+
+	for _, sub := range g.Subscriptions {
+		text := full
+		if sub.EventsOnly {
+			text = notice
+		}
+		if text == "" {
+			continue
+		}
+		u.sendTo(ctx, sub.ChatID, text, markup)
+	}
+}
+
+func levelMessage(question, notes string) string {
+	parts := []string{texts.LevelUp}
+	if question != "" {
+		parts = append(parts, question)
+	}
+	if notes != "" {
+		parts = append(parts, notes)
+	}
+	return strings.Join(parts, "\n\n")
 }
 
 func buttonRow(label, data string) models.ReplyMarkup {
@@ -175,43 +205,15 @@ func buttonRow(label, data string) models.ReplyMarkup {
 	}}}
 }
 
-type wants func(store.Subscription) bool
+func (u *Updater) sendTo(ctx context.Context, chatID int64, text string, markup models.ReplyMarkup) {
+	err := tgsend.HTML(ctx, u.tg, tgsend.Message{
+		ChatID:  chatID,
+		Text:    text,
+		MapLink: geo.Linker(u.store.MapService()),
+		Markup:  markup,
+	})
 
-func wantLevelUp(s store.Subscription) bool  { return s.LevelUp }
-func wantHints(s store.Subscription) bool    { return s.Hints }
-func wantSpoilers(s store.Subscription) bool { return s.Spoilers }
-func wantQuestion(s store.Subscription) bool { return s.Question }
-func wantNotes(s store.Subscription) bool    { return s.Notes }
-
-func (u *Updater) broadcast(ctx context.Context, want wants, text string, html bool) {
-	u.broadcastWith(ctx, want, text, html, nil)
-}
-
-// A chat that blocked the bot is unsubscribed automatically.
-func (u *Updater) broadcastWith(ctx context.Context, want wants, text string, html bool, markup models.ReplyMarkup) {
-	g, ok := u.store.Game()
-	if !ok {
-		return
-	}
-	for _, sub := range g.Subscriptions {
-		if want(sub) {
-			u.sendTo(ctx, sub.ChatID, text, html, markup)
-		}
-	}
-}
-
-func (u *Updater) sendTo(ctx context.Context, chatID int64, text string, html bool, markup models.ReplyMarkup) {
-	var err error
-	if html {
-		err = tgsend.HTML(ctx, u.tg, chatID, text, geo.Linker(u.store.MapService()), nil)
-	} else {
-		_, err = u.tg.SendMessage(ctx, &tgbot.SendMessageParams{
-			ChatID:      chatID,
-			Text:        text,
-			ReplyMarkup: markup,
-		})
-	}
-
+	// A chat that blocked the bot is unsubscribed automatically.
 	if err != nil {
 		if errors.Is(err, tgbot.ErrorForbidden) {
 			u.unsubscribe(chatID)

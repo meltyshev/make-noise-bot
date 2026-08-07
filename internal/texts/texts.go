@@ -97,6 +97,7 @@ const (
 	CallbackAllowCodes = "res:off"
 	CallbackStopGame   = "gm:stop"
 	HintFmt            = "Подсказка %d:\n\n%s"
+	HintNotice         = "Подсказка %d."
 	SpoilerSolved      = "Спойлер %d - АП!"
 )
 
@@ -167,23 +168,13 @@ const (
 	GameSubscribersTitle    = "Подписчики текущей игры:"
 	GameSubscribersCountFmt = "Подписчики игры: %d"
 
-	SubscriptionTitleFmt    = "%s\n\nЧто получает этот чат:"
-	ButtonAllUpdates        = "Всё"
-	ButtonNotificationsOnly = "Только уведомления"
-	ButtonUnsubscribe       = "Отписать"
+	SubscriptionTitleFmt = "%s\n\nЧто получает этот чат:"
+	ButtonAllUpdates     = "Всё"
+	ButtonEventsOnly     = "Только события"
+	ButtonUnsubscribe    = "Отписать"
 
-	KindLevelUp  = "АП!"
-	KindHints    = "Подсказки"
-	KindSpoilers = "Спойлеры"
-	KindQuestion = "Задание"
-	KindNotes    = "Примечания"
-
-	KindShortLevelUp  = "АП"
-	KindShortHints    = "подсказки"
-	KindShortSpoilers = "спойлеры"
-	KindShortQuestion = "задание"
-	KindShortNotes    = "примечания"
-	KindsAll          = "всё"
+	SummaryAll    = "всё"
+	SummaryEvents = "события"
 
 	FormatsTitle     = "Форматы кода:"
 	ButtonManual     = "Ввести вручную"

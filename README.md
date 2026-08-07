@@ -52,9 +52,10 @@ docker compose up -d
    fill in the city, credentials and code formats.
 2. `/game` - start: the bot logs into the engine and answers with the game
    link. Run `/game` again after the finish to stop.
-3. `/subscribe` in every chat that should receive updates, then pick what it
-   gets: АП!, подсказки, спойлеры, задание, примечания. Any number of chats
-   can receive any combination; the same lists are in `/gameconfig`.
+3. `/subscribe` in every chat that should receive updates, and pick the mode:
+   **всё** (level texts, notes, hints and spoilers) or **только события**
+   (short notices that something happened). The same list is in
+   `/gameconfig`.
 4. Play. Type codes right into the chat - `др12`, `dr12`, `--12` are
    normalized by the configured formats; `!код` submits as-is. `?` prints the
    sector board and progress, `$код` answers a pinned (сквозной) level and

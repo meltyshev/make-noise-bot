@@ -59,7 +59,7 @@ func TestUpdatePersistsAndReloads(t *testing.T) {
 	}
 	game, ok := reopened.Game()
 	sub, subscribed := game.Subscriptions.Find(42)
-	if !ok || game.LevelNumber == nil || *game.LevelNumber != 3 || !subscribed || !sub.All() {
+	if !ok || game.LevelNumber == nil || *game.LevelNumber != 3 || !subscribed || sub.EventsOnly {
 		t.Errorf("game = %+v, ok=%v", game, ok)
 	}
 }

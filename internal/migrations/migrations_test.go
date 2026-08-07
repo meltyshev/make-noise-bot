@@ -44,7 +44,8 @@ func TestApplyMissingFileStampsCurrent(t *testing.T) {
 	}
 }
 
-func TestApplySubscriptionKinds(t *testing.T) {
+// A state from the plain-list era upgrades all the way to the current shape.
+func TestApplyLegacySubscribers(t *testing.T) {
 	path := writeState(t, `{
 	  "game_config": {"city": "e-burg", "subscribers": [-100, -200, 7]},
 	  "game": {"engine": "DozorClassic", "subscribers": [-100, -200]}
@@ -54,13 +55,13 @@ func TestApplySubscriptionKinds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
-	if len(applied) != 1 {
-		t.Fatalf("applied = %v, want one migration", applied)
+	if len(applied) != 2 {
+		t.Fatalf("applied = %v, want both migrations", applied)
 	}
 
 	state := read(t, path)
-	if got := state["schema_version"]; got != float64(1) {
-		t.Errorf("schema_version = %v", got)
+	if got := state["schema_version"]; got != float64(Current()) {
+		t.Errorf("schema_version = %v, want %d", got, Current())
 	}
 
 	for _, key := range []string{"game_config", "game"} {
@@ -74,25 +75,59 @@ func TestApplySubscriptionKinds(t *testing.T) {
 			t.Fatalf("%s: subscriptions missing", key)
 		}
 
+		// The chat that used to receive the level texts keeps everything.
 		first := subs[0].(map[string]any)
-		if first["chat_id"] != float64(-100) || first["question"] != true || first["notes"] != true {
+		if first["chat_id"] != float64(-100) || first["events_only"] == true {
 			t.Errorf("%s: first subscriber = %v, want everything", key, first)
 		}
-
 		second := subs[1].(map[string]any)
-		if second["question"] != false || second["notes"] != false {
-			t.Errorf("%s: second subscriber = %v, want notifications only", key, second)
+		if second["events_only"] != true {
+			t.Errorf("%s: second subscriber = %v, want events only", key, second)
 		}
-		for _, kind := range []string{"level_up", "hints", "spoilers"} {
-			if second[kind] != true {
-				t.Errorf("%s: second subscriber lost %s", key, kind)
+		for _, sub := range subs {
+			for _, kind := range []string{"level_up", "hints", "spoilers", "question", "notes"} {
+				if _, ok := sub.(map[string]any)[kind]; ok {
+					t.Errorf("%s: %s survived", key, kind)
+				}
 			}
 		}
 	}
 
-	// Untouched fields survive.
 	if city := state["game_config"].(map[string]any)["city"]; city != "e-burg" {
 		t.Errorf("city = %v", city)
+	}
+}
+
+func TestApplySubscriptionModes(t *testing.T) {
+	path := writeState(t, `{
+	  "schema_version": 1,
+	  "game_config": {"subscriptions": [
+	    {"chat_id": -100, "level_up": true, "hints": true, "spoilers": true, "question": true, "notes": true},
+	    {"chat_id": -200, "level_up": true, "hints": true, "spoilers": true},
+	    {"chat_id": 7, "notes": true}
+	  ]}
+	}`)
+
+	if _, err := Apply(path); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	subs := read(t, path)["game_config"].(map[string]any)["subscriptions"].([]any)
+	if len(subs) != 3 {
+		t.Fatalf("subscriptions = %d, want 3", len(subs))
+	}
+
+	// Chats that wanted the level texts keep everything.
+	for i, want := range []bool{false, true, false} {
+		sub := subs[i].(map[string]any)
+		if got := sub["events_only"] == true; got != want {
+			t.Errorf("subscription %d events_only = %v, want %v", i, got, want)
+		}
+		for _, kind := range []string{"level_up", "hints", "spoilers", "question", "notes"} {
+			if _, ok := sub[kind]; ok {
+				t.Errorf("subscription %d kept %s", i, kind)
+			}
+		}
 	}
 }
 
@@ -132,7 +167,7 @@ func TestApplyWithoutSubscribers(t *testing.T) {
 	if subs, ok := owner["subscriptions"]; ok {
 		t.Errorf("subscriptions invented: %v", subs)
 	}
-	if state["schema_version"] != float64(1) {
+	if state["schema_version"] != float64(Current()) {
 		t.Errorf("schema_version = %v", state["schema_version"])
 	}
 }

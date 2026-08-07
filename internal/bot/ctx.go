@@ -84,8 +84,13 @@ func (c *Ctx) Replyf(format string, args ...any) {
 }
 
 func (c *Ctx) ReplyHTML(text string) {
-	mapLink := geo.Linker(c.app.store.MapService())
-	if err := tgsend.HTML(c.ctx, c.app.tg, c.ChatID(), text, mapLink, c.replyParams()); err != nil {
+	err := tgsend.HTML(c.ctx, c.app.tg, tgsend.Message{
+		ChatID:  c.ChatID(),
+		Text:    text,
+		MapLink: geo.Linker(c.app.store.MapService()),
+		Reply:   c.replyParams(),
+	})
+	if err != nil {
 		c.app.reportError(fmt.Errorf("send html: %w", err))
 	}
 }

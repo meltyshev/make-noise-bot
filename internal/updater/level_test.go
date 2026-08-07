@@ -127,6 +127,20 @@ func TestLevelGone(t *testing.T) {
 	}
 }
 
+// The full message carries whatever the level has; events-only chats get
+// the shout instead, which announce() picks per chat.
+func TestLevelMessage(t *testing.T) {
+	if got := levelMessage("Найдите памятник", "Осторожно, собака"); got != "АП!\n\nНайдите памятник\n\nОсторожно, собака" {
+		t.Errorf("full = %q", got)
+	}
+	if got := levelMessage("Найдите памятник", ""); got != "АП!\n\nНайдите памятник" {
+		t.Errorf("without notes = %q", got)
+	}
+	if got := levelMessage("", ""); got != "АП!" {
+		t.Errorf("without texts = %q, want the shout alone", got)
+	}
+}
+
 func TestSameLevel(t *testing.T) {
 	if !sameLevel(at(5, "aaa", 10), at(5, "aaa", 10)) {
 		t.Error("identical states differ")
