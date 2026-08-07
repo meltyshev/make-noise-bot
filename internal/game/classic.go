@@ -175,6 +175,12 @@ func (c *Classic) EnterCode(ctx context.Context, code string, pinnedLevel *int) 
 	return result
 }
 
+// The classic engine has no separate spoiler form: it recognises a spoiler
+// code sent as a normal one.
+func (c *Classic) EnterSpoilerCode(ctx context.Context, code string) EnterCodeResult {
+	return c.EnterCode(ctx, code, nil)
+}
+
 func (c *Classic) enterCodeOnce(ctx context.Context, code string, pinnedLevel *int) (EnterCodeResult, bool) {
 	form := url.Values{
 		"action": {"entcod"},

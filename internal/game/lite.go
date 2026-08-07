@@ -105,14 +105,24 @@ func (l *Lite) Name() string { return NameLite }
 func (l *Lite) Link() string { return l.link }
 
 func (l *Lite) EnterCode(ctx context.Context, code string, _ *int) EnterCodeResult {
+	return l.submit(ctx, "entcod", "cod", code)
+}
+
+// EnterSpoilerCode uses the page's own spoiler form, which differs from the
+// level one only by the action and the field carrying the code.
+func (l *Lite) EnterSpoilerCode(ctx context.Context, code string) EnterCodeResult {
+	return l.submit(ctx, "spoilerCode", "spoilerCode", code)
+}
+
+func (l *Lite) submit(ctx context.Context, action, field, code string) EnterCodeResult {
 	// The lite engine expects multipart here, not urlencoded.
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	for field, value := range map[string]string{
-		"action": "entcod",
-		"cod":    encodeCP1251(code),
+	for name, value := range map[string]string{
+		"action": action,
+		field:    encodeCP1251(code),
 	} {
-		fw, err := writer.CreateFormField(field)
+		fw, err := writer.CreateFormField(name)
 		if err != nil {
 			return EnterCodeResult{Message: texts.EngineTimeout}
 		}
@@ -139,7 +149,7 @@ func (l *Lite) EnterCode(ctx context.Context, code string, _ *int) EnterCodeResu
 		return resultFromStatus(liteStatuses, liteAccepted, resp.Header.Get("Location"))
 	}
 
-	l.env.debug("lite-entcod", raw)
+	l.env.debug("lite-"+action, raw)
 	return EnterCodeResult{Message: texts.EngineUnknown}
 }
 

@@ -103,6 +103,10 @@ func (p *Prequel) EnterCode(ctx context.Context, code string, _ *int) EnterCodeR
 	return result
 }
 
+func (p *Prequel) EnterSpoilerCode(ctx context.Context, code string) EnterCodeResult {
+	return p.EnterCode(ctx, code, nil)
+}
+
 func (p *Prequel) enterCodeOnce(ctx context.Context, code string) (EnterCodeResult, bool) {
 	form := url.Values{
 		"action": {"prequel_code_new"},

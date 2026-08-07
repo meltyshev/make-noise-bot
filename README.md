@@ -57,7 +57,8 @@ docker compose up -d
    can receive any combination; the same lists are in `/gameconfig`.
 4. Play. Type codes right into the chat - `др12`, `dr12`, `--12` are
    normalized by the configured formats; `!код` submits as-is. `?` prints the
-   sector board and progress, `$код` answers a pinned (сквозной) level.
+   sector board and progress, `$код` answers a pinned (сквозной) level and
+   `&код` opens a spoiler.
 
 Chats must be allowed first: `/permission` sends the admin a request with
 Allow/Forbid buttons (manual `/allow <id>` works too). Managers and

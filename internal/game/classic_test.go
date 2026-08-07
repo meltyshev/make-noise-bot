@@ -151,6 +151,27 @@ func TestClassicEnterCode(t *testing.T) {
 	}
 }
 
+func TestClassicSpoilerCodeGoesThroughTheUsualForm(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		if got := r.PostForm.Get("action"); got != "entcod" {
+			t.Errorf("action = %q, want entcod", got)
+		}
+		if got := r.PostForm.Get("cod"); got != "\xea\xf0\xe8\xef\xf2\xe5\xea\xf1" {
+			t.Errorf("cod = %q, want windows-1251 bytes", got)
+		}
+		w.Header().Set("Location", "?err=55")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer srv.Close()
+
+	engine := newClassic(classicGame(), testEnv(srv))
+	result := engine.EnterSpoilerCode(context.Background(), "криптекс")
+	if !result.Accepted || result.StatusCode != 55 {
+		t.Fatalf("result = %+v, want accepted status 55", result)
+	}
+}
+
 func TestClassicEnterCodePinnedLevel(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()

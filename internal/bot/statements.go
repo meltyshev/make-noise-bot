@@ -99,6 +99,37 @@ func (a *App) enterPinnedCode(c *Ctx) {
 	c.ReplyAlways(result.Message)
 }
 
+// enterSpoilerCode handles "&code": codes that open a spoiler. Like the
+// other marked codes it is typed on purpose, so a restriction does not stop
+// it.
+func (a *App) enterSpoilerCode(c *Ctx) {
+	if !c.IsAllowedSilent() {
+		return
+	}
+
+	g, ok := a.store.Game()
+	if !ok {
+		return
+	}
+	engine := game.New(g, a.env)
+	if engine == nil {
+		return
+	}
+
+	code := strings.ToLower(strings.TrimSpace(c.Text()[len("&"):]))
+	if code == "" {
+		return
+	}
+
+	result := engine.EnterSpoilerCode(c.ctx, code)
+	if result.Accepted {
+		if err := a.store.IncrementPlayer(c.UserID(), c.UserName()); err != nil {
+			a.reportError(err)
+		}
+	}
+	c.ReplyAlways(result.Message)
+}
+
 // enterCode treats every unclaimed text message in an allowed chat as a
 // potential game code.
 func (a *App) enterCode(c *Ctx) {

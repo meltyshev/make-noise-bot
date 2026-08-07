@@ -75,6 +75,8 @@ func (a *App) onUpdate(ctx context.Context, _ *tgbot.Bot, update *models.Update)
 		a.information(c)
 	case strings.HasPrefix(text, "$"):
 		a.enterPinnedCode(c)
+	case strings.HasPrefix(text, "&"):
+		a.enterSpoilerCode(c)
 	case text != "":
 		a.enterCode(c)
 	}

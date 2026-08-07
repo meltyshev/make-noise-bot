@@ -191,6 +191,35 @@ func TestLiteEnterCodeMultipart(t *testing.T) {
 	}
 }
 
+func TestLiteEnterSpoilerCode(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			t.Fatalf("parse multipart: %v", err)
+		}
+
+		// The spoiler form differs from the level one by these two fields.
+		if got := r.FormValue("action"); got != "spoilerCode" {
+			t.Errorf("action = %q, want spoilerCode", got)
+		}
+		if got := r.FormValue("spoilerCode"); got != "\xea\xf0\xe8\xef\xf2\xe5\xea\xf1" {
+			t.Errorf("spoilerCode = %q, want windows-1251 bytes", got)
+		}
+		if got := r.FormValue("cod"); got != "" {
+			t.Errorf("the level field was sent too: %q", got)
+		}
+
+		w.Header().Set("Location", "?err=41")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer srv.Close()
+
+	engine := newLite(liteGame(), testEnv(srv))
+	result := engine.EnterSpoilerCode(context.Background(), "криптекс")
+	if result.Accepted || result.StatusCode != 41 {
+		t.Fatalf("result = %+v, want the rejection status 41", result)
+	}
+}
+
 func TestLiteLoadDecodesWindows1251(t *testing.T) {
 	// The real site serves windows-1251; the body must be transcoded.
 	raw := []byte("<!--levelTextBegin-->\xcf\xf0\xe8\xe2\xe5\xf2<!--levelTextEnd-->")
