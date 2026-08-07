@@ -325,16 +325,15 @@ func (a *App) chatsCallback(c *cb, args []string) {
 		switch {
 		case !found:
 			c.answer(texts.ChatNotFound)
-			showList()
 		case !changed:
 			c.answer(texts.AlreadyProcessed)
 		default:
 			c.answer(texts.Done)
-			showActions(id)
 			if err := a.send(c.ctx, id, notification); err != nil {
 				a.log.Warn("permission notification failed", "chat_id", id, "error", err)
 			}
 		}
+		showList()
 	case "del":
 		id, ok := argID(args, 1)
 		if !ok {
@@ -492,8 +491,8 @@ func (a *App) gameConfigCallback(c *cb, args []string) {
 			c.answer("")
 			return
 		}
-		c.answer(texts.Done)
-		editWith(renderFormatsMenu)
+		c.answer("")
+		showMenu()
 	case "fmtm":
 		a.conv.Set(c.query.From.ID, c.chatID, "gameconfig", gcField{Field: "code_formats", ChatID: c.chatID, MsgID: c.msgID})
 		c.answer("")

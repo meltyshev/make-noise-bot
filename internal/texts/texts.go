@@ -182,7 +182,7 @@ const (
 	FormatsInvalid   = "Не понял. Пример: dr=др=--, rd=рд"
 	PresetDigitsOnly = "Только цифры"
 	PresetDR         = "DR (dr, др, --)"
-	PresetMoscow     = "Москва (dr, rd, d, r)"
+	PresetMoscow     = "Москва (dr, др, rd, рд, d, д, r, р)"
 )
 
 // Command descriptions for /help and the Telegram command menu.

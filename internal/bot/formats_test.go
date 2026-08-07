@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/meltyshev/make-noise-bot/internal/texts"
@@ -98,6 +99,26 @@ func TestFormatsRoundTrip(t *testing.T) {
 	parsed, ok := parseCodeFormats(formatsLabel(custom))
 	if !ok || !formatsEqual(parsed, custom) {
 		t.Errorf("custom round trip = %v, ok=%v", parsed, ok)
+	}
+}
+
+// Preset labels list every variant they accept, so they cannot drift from
+// the formats behind them.
+func TestPresetLabelsListEveryVariant(t *testing.T) {
+	for _, preset := range formatPresets {
+		for _, group := range preset.Formats {
+			for _, variant := range group {
+				if variant == "" {
+					continue
+				}
+				if !strings.Contains(preset.Label, variant) {
+					t.Errorf("%q does not mention %q", preset.Label, variant)
+				}
+			}
+		}
+		if len([]rune(mark(true, preset.Label))) > 48 {
+			t.Errorf("%q is too long for a button", preset.Label)
+		}
 	}
 }
 
