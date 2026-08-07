@@ -41,7 +41,7 @@ func (a *App) onCallback(ctx context.Context, query *models.CallbackQuery) {
 			c.answer(texts.NoAccess)
 			return
 		}
-	case "gc", "gs", "cs":
+	case "gc", "gs", "cs", "res":
 		if query.From.ID != a.adminID() && !a.store.IsManager(query.From.ID) {
 			c.answer(texts.NoAccess)
 			return
@@ -61,6 +61,8 @@ func (a *App) onCallback(ctx context.Context, query *models.CallbackQuery) {
 		a.subscriptionsCallback(c, false, args)
 	case "gs":
 		a.subscriptionsCallback(c, true, args)
+	case "res":
+		a.restrictCallback(c)
 	default:
 		c.answer("")
 	}

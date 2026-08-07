@@ -11,6 +11,7 @@ import (
 	"time"
 
 	tgbot "github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
 
 	"github.com/meltyshev/make-noise-bot/internal/game"
 	"github.com/meltyshev/make-noise-bot/internal/geo"
@@ -105,7 +106,15 @@ func (u *Updater) tick(ctx context.Context) {
 		currentHint = nil
 		currentSolved = nil
 
-		u.broadcast(ctx, wantLevelUp, texts.LevelUp, false)
+		// A restriction outlives the level it was set on, so the new level
+		// carries the button to lift it.
+		var markup models.ReplyMarkup
+		if g.Restricted {
+			markup = &models.InlineKeyboardMarkup{InlineKeyboard: [][]models.InlineKeyboardButton{{
+				{Text: texts.ButtonAllowCodes, CallbackData: texts.CallbackAllowCodes},
+			}}}
+		}
+		u.broadcastWith(ctx, wantLevelUp, texts.LevelUp, false, markup)
 
 		if question := snap.Question(); question != "" {
 			u.broadcast(ctx, wantQuestion, question, true)
@@ -151,25 +160,33 @@ func wantSpoilers(s store.Subscription) bool { return s.Spoilers }
 func wantQuestion(s store.Subscription) bool { return s.Question }
 func wantNotes(s store.Subscription) bool    { return s.Notes }
 
-// A chat that blocked the bot is unsubscribed automatically.
 func (u *Updater) broadcast(ctx context.Context, want wants, text string, html bool) {
+	u.broadcastWith(ctx, want, text, html, nil)
+}
+
+// A chat that blocked the bot is unsubscribed automatically.
+func (u *Updater) broadcastWith(ctx context.Context, want wants, text string, html bool, markup models.ReplyMarkup) {
 	g, ok := u.store.Game()
 	if !ok {
 		return
 	}
 	for _, sub := range g.Subscriptions {
 		if want(sub) {
-			u.sendTo(ctx, sub.ChatID, text, html)
+			u.sendTo(ctx, sub.ChatID, text, html, markup)
 		}
 	}
 }
 
-func (u *Updater) sendTo(ctx context.Context, chatID int64, text string, html bool) {
+func (u *Updater) sendTo(ctx context.Context, chatID int64, text string, html bool, markup models.ReplyMarkup) {
 	var err error
 	if html {
 		err = tgsend.HTML(ctx, u.tg, chatID, text, geo.Linker(u.store.MapService()), nil)
 	} else {
-		_, err = u.tg.SendMessage(ctx, &tgbot.SendMessageParams{ChatID: chatID, Text: text})
+		_, err = u.tg.SendMessage(ctx, &tgbot.SendMessageParams{
+			ChatID:      chatID,
+			Text:        text,
+			ReplyMarkup: markup,
+		})
 	}
 
 	if err != nil {

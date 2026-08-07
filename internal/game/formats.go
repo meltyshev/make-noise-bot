@@ -18,7 +18,7 @@ func PrepareCode(message string, formats [][]string) (code string, ok bool) {
 	if len(runes) == 0 {
 		return "", false
 	}
-	if runes[0] == '!' || runes[0] == '.' {
+	if IsMarkedCode(code) {
 		return string(runes[1:]), true
 	}
 
@@ -57,6 +57,13 @@ func PrepareCode(message string, formats [][]string) (code string, ok bool) {
 	}
 
 	return "", false
+}
+
+// IsMarkedCode reports the "!" and "." prefixes that send a code as typed,
+// without matching it against the code formats.
+func IsMarkedCode(message string) bool {
+	runes := []rune(message)
+	return len(runes) > 1 && (runes[0] == '!' || runes[0] == '.')
 }
 
 func replaceFirstRune(s string, old, new rune) string {

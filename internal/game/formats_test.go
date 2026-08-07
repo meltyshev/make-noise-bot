@@ -25,6 +25,7 @@ func TestPrepareCode(t *testing.T) {
 		{name: "digits only match empty pattern format", message: "123", formats: [][]string{{""}}, want: "123", wantOK: true},
 		{name: "digits only with default formats are not a code", message: "123", formats: defaultFormats, want: "", wantOK: false},
 		{name: "empty formats accept nothing", message: "dr123", formats: nil, want: "", wantOK: false},
+		{name: "a lone mark is not a code", message: "!", formats: defaultFormats, want: "", wantOK: false},
 		{name: "second format wins", message: "кр7", formats: [][]string{{"dr", "др"}, {"kr", "кр"}}, want: "kr7", wantOK: true},
 		{name: "variant longer than canonical is trimmed by zip", message: "дрр5", formats: [][]string{{"dr", "дрр"}}, want: "drр5", wantOK: true},
 	}
@@ -36,5 +37,18 @@ func TestPrepareCode(t *testing.T) {
 				t.Fatalf("PrepareCode(%q) = (%q, %v), want (%q, %v)", tt.message, got, ok, tt.want, tt.wantOK)
 			}
 		})
+	}
+}
+
+func TestIsMarkedCode(t *testing.T) {
+	for _, message := range []string{"!dr12", ".dr12", "!x", ".код"} {
+		if !IsMarkedCode(message) {
+			t.Errorf("IsMarkedCode(%q) = false, want true", message)
+		}
+	}
+	for _, message := range []string{"dr12", "код", "", "!", ".", "1.2"} {
+		if IsMarkedCode(message) {
+			t.Errorf("IsMarkedCode(%q) = true, want false", message)
+		}
 	}
 }

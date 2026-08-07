@@ -107,7 +107,7 @@ func (a *App) enterCode(c *Ctx) {
 	}
 
 	g, ok := a.store.Game()
-	if !ok || g.Restricted {
+	if !ok {
 		return
 	}
 
@@ -121,13 +121,9 @@ func (a *App) enterCode(c *Ctx) {
 		return
 	}
 
-	code := c.Text()
-	if !chat.BruteForce {
-		prepared, isCode := game.PrepareCode(code, g.CodeFormats)
-		if !isCode {
-			return
-		}
-		code = prepared
+	code, isCode := codeToSend(c.Text(), g.Restricted, chat.BruteForce, g.CodeFormats)
+	if !isCode {
+		return
 	}
 
 	result := engine.EnterCode(c.ctx, code, nil)
@@ -144,6 +140,19 @@ func (a *App) enterCode(c *Ctx) {
 	}
 
 	c.ReplyAlways(result.Message)
+}
+
+// codeToSend decides what leaves the chat for the engine. A restricted game
+// still takes codes marked with "!" or ".", which are typed on purpose.
+func codeToSend(text string, restricted, bruteForce bool, formats [][]string) (string, bool) {
+	marked := game.IsMarkedCode(text)
+	if restricted && !marked {
+		return "", false
+	}
+	if bruteForce && !marked {
+		return text, true
+	}
+	return game.PrepareCode(text, formats)
 }
 
 func (a *App) leaveChat(c *Ctx) {
