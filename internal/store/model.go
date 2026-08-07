@@ -152,10 +152,14 @@ type Game struct {
 	League   string `json:"league,omitempty"`
 	Session  string `json:"session,omitempty"`
 
-	LevelNumber    *int  `json:"level_number,omitempty"`
-	HintNumber     *int  `json:"hint_number,omitempty"`
-	SolvedSpoilers []int `json:"solved_spoilers,omitempty"`
-	PinnedLevel    *int  `json:"pinned_level,omitempty"`
+	LevelNumber *int `json:"level_number,omitempty"`
+	// LevelTask fingerprints the task itself and LevelTime is its timer, so
+	// a renumbered level is not mistaken for a new one.
+	LevelTask      string `json:"level_task,omitempty"`
+	LevelTime      *int   `json:"level_time,omitempty"`
+	HintNumber     *int   `json:"hint_number,omitempty"`
+	SolvedSpoilers []int  `json:"solved_spoilers,omitempty"`
+	PinnedLevel    *int   `json:"pinned_level,omitempty"`
 }
 
 // Player counts a user's accepted codes.

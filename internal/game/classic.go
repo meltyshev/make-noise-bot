@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -306,6 +307,31 @@ func (s *classicSnapshot) Progress() string {
 
 	progress = append(progress, asString(s.level["timeOnLevel"]))
 	return strings.Join(progress, " ")
+}
+
+func (s *classicSnapshot) TimeOnLevel() (int, bool) {
+	if s.level == nil {
+		return 0, false
+	}
+	return parseClock(asString(s.level["timeOnLevel"]))
+}
+
+// parseClock reads "H:MM:SS" and "MM:SS" into seconds.
+func parseClock(value string) (int, bool) {
+	parts := strings.Split(strings.TrimSpace(value), ":")
+	if len(parts) < 2 || len(parts) > 3 {
+		return 0, false
+	}
+
+	total := 0
+	for _, part := range parts {
+		number, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil || number < 0 {
+			return 0, false
+		}
+		total = total*60 + number
+	}
+	return total, true
 }
 
 func (s *classicSnapshot) Question() string {

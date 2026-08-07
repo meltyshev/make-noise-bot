@@ -78,32 +78,40 @@ func (u *Updater) tick(ctx context.Context) {
 	}
 
 	// Persist first, notify after: a failed broadcast is never repeated.
-	levelNumber := snap.LevelNumber()
+	previous := levelState{Number: g.LevelNumber, Task: g.LevelTask, Time: g.LevelTime}
+	current := levelState{Number: snap.LevelNumber(), Task: levelTask(snap), Time: timeOnLevel(snap)}
+
 	currentHint := g.HintNumber
 	currentSolved := g.SolvedSpoilers
 
-	if !intPtrEqual(levelNumber, g.LevelNumber) {
+	newLevel := isNewLevel(previous, current)
+	if !sameLevel(previous, current) {
 		err := u.store.UpdateGame(func(g *store.Game) {
-			g.LevelNumber = levelNumber
-			g.HintNumber = nil
-			g.SolvedSpoilers = nil
+			g.LevelNumber = current.Number
+			g.LevelTask = current.Task
+			g.LevelTime = current.Time
+			if newLevel {
+				g.HintNumber = nil
+				g.SolvedSpoilers = nil
+			}
 		})
 		if err != nil {
 			u.report(err)
 			return
 		}
+	}
+
+	if newLevel {
 		currentHint = nil
 		currentSolved = nil
 
-		if levelNumber != nil {
-			u.broadcast(ctx, wantLevelUp, texts.LevelUp, false)
+		u.broadcast(ctx, wantLevelUp, texts.LevelUp, false)
 
-			if question := snap.Question(); question != "" {
-				u.broadcast(ctx, wantQuestion, question, true)
-			}
-			if notes := snap.Notes(); notes != "" {
-				u.broadcast(ctx, wantNotes, notes, true)
-			}
+		if question := snap.Question(); question != "" {
+			u.broadcast(ctx, wantQuestion, question, true)
+		}
+		if notes := snap.Notes(); notes != "" {
+			u.broadcast(ctx, wantNotes, notes, true)
 		}
 	}
 

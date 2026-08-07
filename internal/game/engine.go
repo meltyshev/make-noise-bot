@@ -43,13 +43,14 @@ type Sector struct {
 
 // Snapshot is one loaded view of the engine state.
 type Snapshot interface {
-	LevelNumber() *int     // nil when there is no level
-	Progress() string      // "" when unavailable
-	Question() string      // "" when unavailable
-	Notes() string         // "" when unavailable
-	Sectors() []Sector     // nil when unavailable
-	Hint() (int, string)   // 0, "" when there is no hint
-	SolvedSpoilers() []int // nil when unsupported or no level
+	LevelNumber() *int        // nil when there is no level
+	Progress() string         // "" when unavailable
+	Question() string         // "" when unavailable
+	Notes() string            // "" when unavailable
+	Sectors() []Sector        // nil when unavailable
+	Hint() (int, string)      // 0, "" when there is no hint
+	SolvedSpoilers() []int    // nil when unsupported or no level
+	TimeOnLevel() (int, bool) // seconds, false when the engine hides it
 }
 
 type Engine interface {

@@ -196,6 +196,18 @@ func (s *liteSnapshot) Progress() string {
 	return strings.Join(progress, " ")
 }
 
+func (s *liteSnapshot) TimeOnLevel() (int, bool) {
+	match := liteTimeRe.FindStringSubmatch(s.data)
+	if match == nil {
+		return 0, false
+	}
+	seconds, err := strconv.Atoi(match[1])
+	if err != nil {
+		return 0, false
+	}
+	return seconds, true
+}
+
 func (s *liteSnapshot) Question() string {
 	match := liteQuestionRe.FindStringSubmatch(s.data)
 	if match == nil {
