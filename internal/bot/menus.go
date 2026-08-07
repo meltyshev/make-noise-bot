@@ -105,11 +105,9 @@ func renderManagers(d *store.Data) (string, [][]models.InlineKeyboardButton) {
 
 	var keyboard [][]models.InlineKeyboardButton
 	for _, id := range sortByName(d, ids) {
-		label := d.DisplayName(id)
-		if managers[id] {
-			label += " ✓"
-		}
-		keyboard = append(keyboard, btnRow(btn(label, fmt.Sprintf("cfg:mgrt:%d", id))))
+		keyboard = append(keyboard, btnRow(
+			btn(mark(managers[id], d.DisplayName(id)), fmt.Sprintf("cfg:mgrt:%d", id)),
+		))
 	}
 	keyboard = append(keyboard, btnRow(btn(texts.ButtonAdd, "cfg:mgradd"), btn(texts.ButtonBack, "cfg:menu")))
 	return texts.ManagersTitle, keyboard
@@ -388,11 +386,11 @@ func renderGameConfigMenu(d *store.Data) (string, [][]models.InlineKeyboardButto
 		btnRow(btn(fmt.Sprintf(texts.GameConfigGameIDFmt, cfg.GameID), "gc:field:game_id")),
 		btnRow(btn(fmt.Sprintf(texts.GameConfigLeagueFmt, cfg.League), "gc:field:league")),
 		btnRow(btn(fmt.Sprintf(texts.GameConfigFormatsFmt, formatsLabel(cfg.CodeFormats)), "gc:fmt")),
-		btnRow(btn(fmt.Sprintf(texts.GameConfigSubscribersFmt, len(cfg.Subscribers)), "gc:subs")),
+		btnRow(btn(fmt.Sprintf(texts.GameConfigSubscribersFmt, len(cfg.Subscriptions)), "cs:list")),
 	}
 	if d.Game != nil {
 		keyboard = append(keyboard, btnRow(
-			btn(fmt.Sprintf(texts.GameSubscribersCountFmt, len(d.Game.Subscribers)), "gs:list"),
+			btn(fmt.Sprintf(texts.GameSubscribersCountFmt, len(d.Game.Subscriptions)), "gs:list"),
 		))
 	}
 	keyboard = append(keyboard, btnRow(btn(texts.ButtonReset, "gc:reset"), btn(texts.ButtonClose, "gc:close")))
@@ -402,11 +400,10 @@ func renderGameConfigMenu(d *store.Data) (string, [][]models.InlineKeyboardButto
 func renderFormatsMenu(d *store.Data) (string, [][]models.InlineKeyboardButton) {
 	var keyboard [][]models.InlineKeyboardButton
 	for i, preset := range formatPresets {
-		label := preset.Label
-		if formatsEqual(d.GameConfig.CodeFormats, preset.Formats) {
-			label += " ✓"
-		}
-		keyboard = append(keyboard, btnRow(btn(label, fmt.Sprintf("gc:fmtp:%d", i))))
+		active := formatsEqual(d.GameConfig.CodeFormats, preset.Formats)
+		keyboard = append(keyboard, btnRow(
+			btn(mark(active, preset.Label), fmt.Sprintf("gc:fmtp:%d", i)),
+		))
 	}
 	keyboard = append(keyboard,
 		btnRow(btn(texts.ButtonManual, "gc:fmtm")),
@@ -415,52 +412,15 @@ func renderFormatsMenu(d *store.Data) (string, [][]models.InlineKeyboardButton) 
 	return texts.FormatsTitle, keyboard
 }
 
-func renderEngineChoice() (string, [][]models.InlineKeyboardButton) {
+func renderEngineChoice(d *store.Data) (string, [][]models.InlineKeyboardButton) {
 	var keyboard [][]models.InlineKeyboardButton
 	for _, name := range game.Names {
-		keyboard = append(keyboard, btnRow(btn(name, "gc:seteng:"+name)))
+		keyboard = append(keyboard, btnRow(
+			btn(mark(d.GameConfig.Engine == name, name), "gc:seteng:"+name),
+		))
 	}
 	keyboard = append(keyboard, btnRow(btn(texts.ButtonBack, "gc:menu")))
 	return texts.GameConfigEngineAsk, keyboard
-}
-
-func renderSubscribers(d *store.Data, forGame bool) (string, [][]models.InlineKeyboardButton) {
-	title := texts.SubscribersTitle
-	current := d.GameConfig.Subscribers
-	toggle := "gc:subst:%d"
-	if forGame {
-		title = texts.GameSubscribersTitle
-		toggle = "gs:t:%d"
-		if d.Game != nil {
-			current = d.Game.Subscribers
-		}
-	}
-
-	subscribed := map[int64]bool{}
-	for _, id := range current {
-		subscribed[id] = true
-	}
-
-	ids := map[int64]bool{}
-	for id, chat := range d.Chats {
-		if chat.Permission == store.PermissionAllowed {
-			ids[id] = true
-		}
-	}
-	for id := range subscribed {
-		ids[id] = true
-	}
-
-	var keyboard [][]models.InlineKeyboardButton
-	for _, id := range sortByName(d, ids) {
-		label := d.DisplayName(id)
-		if subscribed[id] {
-			label += " ✓"
-		}
-		keyboard = append(keyboard, btnRow(btn(label, fmt.Sprintf(toggle, id))))
-	}
-	keyboard = append(keyboard, btnRow(btn(texts.ButtonBack, "gc:menu")))
-	return title, keyboard
 }
 
 func (a *App) gameConfigCallback(c *cb, args []string) {
@@ -485,8 +445,7 @@ func (a *App) gameConfigCallback(c *cb, args []string) {
 		showMenu()
 	case "engine":
 		c.answer("")
-		text, keyboard := renderEngineChoice()
-		c.edit(text, keyboard)
+		editWith(renderEngineChoice)
 	case "seteng":
 		if len(args) < 2 || !game.IsKnownEngine(args[1]) {
 			c.answer("")
@@ -541,41 +500,6 @@ func (a *App) gameConfigCallback(c *cb, args []string) {
 		if err := a.send(c.ctx, c.chatID, texts.FormatsManualAsk); err != nil {
 			a.reportError(err)
 		}
-	case "subs":
-		c.answer("")
-		editWith(func(d *store.Data) (string, [][]models.InlineKeyboardButton) {
-			return renderSubscribers(d, false)
-		})
-	case "subst":
-		id, ok := argID(args, 1)
-		if !ok {
-			c.answer("")
-			return
-		}
-		// The toggle mirrors into the running game so changes apply without
-		// a restart; chats subscribed via /subscribe only are untouched.
-		err := a.store.Update(func(d *store.Data) {
-			d.GameConfig.Subscribers = toggleID(d.GameConfig.Subscribers, id)
-			if d.Game != nil {
-				subscribed := false
-				for _, item := range d.GameConfig.Subscribers {
-					if item == id {
-						subscribed = true
-						break
-					}
-				}
-				d.Game.Subscribers = setMembership(d.Game.Subscribers, id, subscribed)
-			}
-		})
-		if err != nil {
-			a.reportError(err)
-			c.answer("")
-			return
-		}
-		c.answer("")
-		editWith(func(d *store.Data) (string, [][]models.InlineKeyboardButton) {
-			return renderSubscribers(d, false)
-		})
 	case "reset":
 		err := a.store.Update(func(d *store.Data) { d.GameConfig = store.DefaultGameConfig() })
 		if err != nil {
@@ -591,81 +515,6 @@ func (a *App) gameConfigCallback(c *cb, args []string) {
 	default:
 		c.answer("")
 	}
-}
-
-func (a *App) gameSubscribersCallback(c *cb, args []string) {
-	if len(args) == 0 {
-		c.answer("")
-		return
-	}
-
-	showSubscribers := func() {
-		var (
-			text     string
-			keyboard [][]models.InlineKeyboardButton
-		)
-		a.store.View(func(d *store.Data) { text, keyboard = renderSubscribers(d, true) })
-		c.edit(text, keyboard)
-	}
-
-	if _, ok := a.store.Game(); !ok {
-		c.answer(texts.NoActiveGame)
-		var (
-			text     string
-			keyboard [][]models.InlineKeyboardButton
-		)
-		a.store.View(func(d *store.Data) { text, keyboard = renderGameConfigMenu(d) })
-		c.edit(text, keyboard)
-		return
-	}
-
-	switch args[0] {
-	case "list":
-		c.answer("")
-		showSubscribers()
-	case "t":
-		id, ok := argID(args, 1)
-		if !ok {
-			c.answer("")
-			return
-		}
-		err := a.store.UpdateGame(func(g *store.Game) {
-			g.Subscribers = toggleID(g.Subscribers, id)
-		})
-		if err != nil {
-			a.reportError(err)
-			c.answer("")
-			return
-		}
-		c.answer("")
-		showSubscribers()
-	default:
-		c.answer("")
-	}
-}
-
-func toggleID(list []int64, id int64) []int64 {
-	for i, item := range list {
-		if item == id {
-			return append(list[:i], list[i+1:]...)
-		}
-	}
-	return append(list, id)
-}
-
-func setMembership(list []int64, id int64, present bool) []int64 {
-	for i, item := range list {
-		if item == id {
-			if present {
-				return list
-			}
-			return append(list[:i], list[i+1:]...)
-		}
-	}
-	if present {
-		return append(list, id)
-	}
-	return list
 }
 
 func sortByName(d *store.Data, ids map[int64]bool) []int64 {

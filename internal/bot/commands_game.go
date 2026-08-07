@@ -52,38 +52,19 @@ func cmdSubscribe() *Command {
 			if !c.IsManager() {
 				return
 			}
-
-			g, ok := c.app.store.Game()
-			if !ok {
+			if _, ok := c.app.store.Game(); !ok {
 				c.Reply(texts.NoActiveGame)
 				return
 			}
 
-			chatID := c.ChatID()
-			subscribed := g.HasSubscriber(chatID)
-			err := c.app.store.UpdateGame(func(g *store.Game) {
-				if subscribed {
-					kept := g.Subscribers[:0]
-					for _, id := range g.Subscribers {
-						if id != chatID {
-							kept = append(kept, id)
-						}
-					}
-					g.Subscribers = kept
-				} else if !g.HasSubscriber(chatID) {
-					g.Subscribers = append(g.Subscribers, chatID)
-				}
+			var (
+				text     string
+				keyboard [][]models.InlineKeyboardButton
+			)
+			c.app.store.View(func(d *store.Data) {
+				text, keyboard = renderSubscriptionDetail(d, true, c.ChatID(), true)
 			})
-			if err != nil {
-				c.app.reportError(err)
-				return
-			}
-
-			if subscribed {
-				c.Reply(texts.SubscribeOff)
-			} else {
-				c.Reply(texts.SubscribeOn)
-			}
+			c.ReplyInline(text, keyboard)
 		},
 	}
 }

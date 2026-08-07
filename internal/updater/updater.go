@@ -61,7 +61,7 @@ func (u *Updater) tick(ctx context.Context) {
 	}()
 
 	g, ok := u.store.Game()
-	if !ok || len(g.Subscribers) == 0 {
+	if !ok || len(g.Subscriptions) == 0 {
 		return
 	}
 
@@ -95,13 +95,13 @@ func (u *Updater) tick(ctx context.Context) {
 		currentSolved = nil
 
 		if levelNumber != nil {
-			u.broadcast(ctx, texts.LevelUp, false)
+			u.broadcast(ctx, wantLevelUp, texts.LevelUp, false)
 
 			if question := snap.Question(); question != "" {
-				u.sendToFirst(ctx, g.Subscribers, question)
+				u.broadcast(ctx, wantQuestion, question, true)
 			}
 			if notes := snap.Notes(); notes != "" {
-				u.sendToFirst(ctx, g.Subscribers, notes)
+				u.broadcast(ctx, wantNotes, notes, true)
 			}
 		}
 	}
@@ -117,7 +117,7 @@ func (u *Updater) tick(ctx context.Context) {
 			return
 		}
 		if hintPtr != nil {
-			u.broadcastHTML(ctx, fmt.Sprintf(texts.HintFmt, hintNumber, hintText))
+			u.broadcast(ctx, wantHints, fmt.Sprintf(texts.HintFmt, hintNumber, hintText), true)
 		}
 	}
 
@@ -129,32 +129,30 @@ func (u *Updater) tick(ctx context.Context) {
 			return
 		}
 		for _, spoiler := range newSolved {
-			u.broadcast(ctx, fmt.Sprintf(texts.SpoilerSolved, spoiler), false)
+			u.broadcast(ctx, wantSpoilers, fmt.Sprintf(texts.SpoilerSolved, spoiler), false)
 		}
 	}
 }
 
+type wants func(store.Subscription) bool
+
+func wantLevelUp(s store.Subscription) bool  { return s.LevelUp }
+func wantHints(s store.Subscription) bool    { return s.Hints }
+func wantSpoilers(s store.Subscription) bool { return s.Spoilers }
+func wantQuestion(s store.Subscription) bool { return s.Question }
+func wantNotes(s store.Subscription) bool    { return s.Notes }
+
 // A chat that blocked the bot is unsubscribed automatically.
-func (u *Updater) broadcast(ctx context.Context, text string, html bool) {
+func (u *Updater) broadcast(ctx context.Context, want wants, text string, html bool) {
 	g, ok := u.store.Game()
 	if !ok {
 		return
 	}
-	for _, subscriber := range g.Subscribers {
-		u.sendTo(ctx, subscriber, text, html)
+	for _, sub := range g.Subscriptions {
+		if want(sub) {
+			u.sendTo(ctx, sub.ChatID, text, html)
+		}
 	}
-}
-
-func (u *Updater) broadcastHTML(ctx context.Context, text string) {
-	u.broadcast(ctx, text, true)
-}
-
-// Questions and notes go only to the first subscriber, the team's main chat.
-func (u *Updater) sendToFirst(ctx context.Context, subscribers []int64, text string) {
-	if len(subscribers) == 0 {
-		return
-	}
-	u.sendTo(ctx, subscribers[0], text, true)
 }
 
 func (u *Updater) sendTo(ctx context.Context, chatID int64, text string, html bool) {
@@ -176,13 +174,7 @@ func (u *Updater) sendTo(ctx context.Context, chatID int64, text string, html bo
 
 func (u *Updater) unsubscribe(chatID int64) {
 	err := u.store.UpdateGame(func(g *store.Game) {
-		kept := g.Subscribers[:0]
-		for _, id := range g.Subscribers {
-			if id != chatID {
-				kept = append(kept, id)
-			}
-		}
-		g.Subscribers = kept
+		g.Subscriptions = g.Subscriptions.Remove(chatID)
 	})
 	if err != nil {
 		u.report(err)

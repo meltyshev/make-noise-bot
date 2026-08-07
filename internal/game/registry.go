@@ -21,10 +21,10 @@ func IsKnownEngine(name string) bool {
 
 func newGameFromConfig(cfg store.GameConfig) *store.Game {
 	game := &store.Game{
-		Engine:      cfg.Engine,
-		City:        cfg.City,
-		CodeFormats: make([][]string, len(cfg.CodeFormats)),
-		Subscribers: append([]int64{}, cfg.Subscribers...),
+		Engine:        cfg.Engine,
+		City:          cfg.City,
+		CodeFormats:   make([][]string, len(cfg.CodeFormats)),
+		Subscriptions: cfg.Subscriptions.Clone(),
 	}
 	for i, format := range cfg.CodeFormats {
 		game.CodeFormats[i] = append([]string{}, format...)

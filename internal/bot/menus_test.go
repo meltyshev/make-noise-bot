@@ -71,7 +71,7 @@ func TestRenderConfigMenu(t *testing.T) {
 func TestRenderManagers(t *testing.T) {
 	_, keyboard := renderManagers(testData())
 
-	if b := findButton(t, keyboard, "Вася ✓"); b.CallbackData != "cfg:mgrt:10" {
+	if b := findButton(t, keyboard, "✓ Вася"); b.CallbackData != "cfg:mgrt:10" {
 		t.Errorf("manager toggle = %q", b.CallbackData)
 	}
 	if b := findButton(t, keyboard, "Дима"); b.CallbackData != "cfg:mgrt:40" {
@@ -95,7 +95,7 @@ func TestRenderManagersKeepsExistingManagers(t *testing.T) {
 	d.Managers = append(d.Managers, 50)
 
 	_, keyboard := renderManagers(d)
-	if b := findButton(t, keyboard, "Гоша ✓"); b.CallbackData != "cfg:mgrt:50" {
+	if b := findButton(t, keyboard, "✓ Гоша"); b.CallbackData != "cfg:mgrt:50" {
 		t.Errorf("forbidden manager toggle = %q", b.CallbackData)
 	}
 }
@@ -105,7 +105,7 @@ func TestRenderManagersUnknownID(t *testing.T) {
 	d.Managers = append(d.Managers, 999)
 
 	_, keyboard := renderManagers(d)
-	if b := findButton(t, keyboard, "ID 999 ✓"); b.CallbackData != "cfg:mgrt:999" {
+	if b := findButton(t, keyboard, "✓ ID 999"); b.CallbackData != "cfg:mgrt:999" {
 		t.Errorf("unknown manager toggle = %q", b.CallbackData)
 	}
 }
@@ -145,7 +145,7 @@ func TestRenderGameConfigMenu(t *testing.T) {
 	if b := findButton(t, keyboard, "Город: e-burg"); b.CallbackData != "gc:field:city" {
 		t.Errorf("city = %q", b.CallbackData)
 	}
-	if b := findButton(t, keyboard, "Подписчики: 0"); b.CallbackData != "gc:subs" {
+	if b := findButton(t, keyboard, "Подписчики: 0"); b.CallbackData != "cs:list" {
 		t.Errorf("subscribers = %q", b.CallbackData)
 	}
 
@@ -156,66 +156,34 @@ func TestRenderGameConfigMenu(t *testing.T) {
 		}
 	}
 
-	d.Game = &store.Game{Engine: "DozorClassic", Subscribers: []int64{-100}}
+	d.Game = &store.Game{Engine: "DozorClassic", Subscriptions: store.Subscriptions{store.AllUpdates(-100)}}
 	_, keyboard = renderGameConfigMenu(d)
 	if b := findButton(t, keyboard, "Подписчики игры: 1"); b.CallbackData != "gs:list" {
 		t.Errorf("game subscribers = %q", b.CallbackData)
 	}
 }
 
-func TestRenderSubscribers(t *testing.T) {
+func TestRenderEngineChoice(t *testing.T) {
 	d := testData()
-	d.GameConfig.Subscribers = []int64{-100, 555}
+	d.GameConfig.Engine = "DozorLite"
 
-	_, keyboard := renderSubscribers(d, false)
-
-	// Allowed chats plus already-subscribed unknown ids are offered.
-	if b := findButton(t, keyboard, "Команда ✓"); b.CallbackData != "gc:subst:-100" {
-		t.Errorf("subscribed chat = %q", b.CallbackData)
+	_, keyboard := renderEngineChoice(d)
+	if b := findButton(t, keyboard, mark(true, "DozorLite")); b.CallbackData != "gc:seteng:DozorLite" {
+		t.Errorf("active engine = %q", b.CallbackData)
 	}
-	if b := findButton(t, keyboard, "ID 555 ✓"); b.CallbackData != "gc:subst:555" {
-		t.Errorf("unknown subscriber = %q", b.CallbackData)
-	}
-	findButton(t, keyboard, "Вася")
-
-	// Forbidden and requested chats are not offered.
 	for _, button := range flatButtons(keyboard) {
-		if strings.Contains(button.Text, "Чужие") || strings.Contains(button.Text, "Аня") {
-			t.Errorf("not-allowed chat offered: %q", button.Text)
+		if button.CallbackData == "gc:seteng:DozorClassic" && strings.HasPrefix(button.Text, "✓") {
+			t.Errorf("inactive engine marked: %q", button.Text)
 		}
 	}
-
-	d.Game = &store.Game{Engine: "DozorClassic", Subscribers: []int64{-100}}
-	_, keyboard = renderSubscribers(d, true)
-	if b := findButton(t, keyboard, "Команда ✓"); b.CallbackData != "gs:t:-100" {
-		t.Errorf("game subscriber toggle = %q", b.CallbackData)
-	}
 }
 
-func TestToggleID(t *testing.T) {
-	list := toggleID(nil, 5)
-	if len(list) != 1 || list[0] != 5 {
-		t.Errorf("add = %v", list)
+func TestMark(t *testing.T) {
+	if got := mark(true, "Вася"); got != "✓ Вася" {
+		t.Errorf("active = %q", got)
 	}
-	list = toggleID(list, 5)
-	if len(list) != 0 {
-		t.Errorf("remove = %v", list)
-	}
-}
-
-func TestSetMembership(t *testing.T) {
-	list := setMembership(nil, 5, true)
-	if len(list) != 1 || list[0] != 5 {
-		t.Errorf("add = %v", list)
-	}
-	if got := setMembership(list, 5, true); len(got) != 1 {
-		t.Errorf("add existing = %v", got)
-	}
-	if got := setMembership(list, 7, false); len(got) != 1 {
-		t.Errorf("remove missing = %v", got)
-	}
-	if got := setMembership(list, 5, false); len(got) != 0 {
-		t.Errorf("remove = %v", got)
+	if got := mark(false, "Вася"); got != "Вася" {
+		t.Errorf("inactive = %q", got)
 	}
 }
 

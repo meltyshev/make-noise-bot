@@ -41,7 +41,7 @@ func (a *App) onCallback(ctx context.Context, query *models.CallbackQuery) {
 			c.answer(texts.NoAccess)
 			return
 		}
-	case "gc", "gs":
+	case "gc", "gs", "cs":
 		if query.From.ID != a.adminID() && !a.store.IsManager(query.From.ID) {
 			c.answer(texts.NoAccess)
 			return
@@ -57,8 +57,10 @@ func (a *App) onCallback(ctx context.Context, query *models.CallbackQuery) {
 		a.chatsCallback(c, args)
 	case "gc":
 		a.gameConfigCallback(c, args)
+	case "cs":
+		a.subscriptionsCallback(c, false, args)
 	case "gs":
-		a.gameSubscribersCallback(c, args)
+		a.subscriptionsCallback(c, true, args)
 	default:
 		c.answer("")
 	}
@@ -120,6 +122,15 @@ func argID(args []string, idx int) (int64, bool) {
 
 func btn(label, data string) models.InlineKeyboardButton {
 	return models.InlineKeyboardButton{Text: truncateLabel(label), CallbackData: data}
+}
+
+// mark prefixes a label when the option is active. Every menu shows state
+// the same way, and the mark survives label truncation.
+func mark(active bool, label string) string {
+	if active {
+		return "✓ " + label
+	}
+	return label
 }
 
 func btnRow(buttons ...models.InlineKeyboardButton) []models.InlineKeyboardButton {

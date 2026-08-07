@@ -48,11 +48,11 @@ func Open(path string) (*Store, error) {
 	if s.data.GameConfig.CodeFormats == nil {
 		s.data.GameConfig.CodeFormats = [][]string{}
 	}
-	if s.data.GameConfig.Subscribers == nil {
-		s.data.GameConfig.Subscribers = []int64{}
+	if s.data.GameConfig.Subscriptions == nil {
+		s.data.GameConfig.Subscriptions = Subscriptions{}
 	}
-	if s.data.Game != nil && s.data.Game.Subscribers == nil {
-		s.data.Game.Subscribers = []int64{}
+	if s.data.Game != nil && s.data.Game.Subscriptions == nil {
+		s.data.Game.Subscriptions = Subscriptions{}
 	}
 	return s, nil
 }
@@ -130,7 +130,7 @@ func (s *Store) GameConfig() GameConfig {
 	s.View(func(d *Data) {
 		cfg = d.GameConfig
 		cfg.CodeFormats = copyFormats(d.GameConfig.CodeFormats)
-		cfg.Subscribers = append([]int64{}, d.GameConfig.Subscribers...)
+		cfg.Subscriptions = d.GameConfig.Subscriptions.Clone()
 	})
 	return cfg
 }
@@ -185,7 +185,7 @@ func (s *Store) Rating() []Player {
 func copyGame(g *Game) Game {
 	out := *g
 	out.CodeFormats = copyFormats(g.CodeFormats)
-	out.Subscribers = append([]int64{}, g.Subscribers...)
+	out.Subscriptions = g.Subscriptions.Clone()
 	out.SolvedSpoilers = append([]int{}, g.SolvedSpoilers...)
 	out.LevelNumber = copyInt(g.LevelNumber)
 	out.HintNumber = copyInt(g.HintNumber)

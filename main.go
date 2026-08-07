@@ -12,6 +12,7 @@ import (
 
 	"github.com/meltyshev/make-noise-bot/internal/bot"
 	"github.com/meltyshev/make-noise-bot/internal/config"
+	"github.com/meltyshev/make-noise-bot/internal/migrations"
 	"github.com/meltyshev/make-noise-bot/internal/secret"
 	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/updater"
@@ -50,6 +51,15 @@ func main() {
 	}
 	if *debug {
 		cfg.Debug = true
+	}
+
+	applied, err := migrations.Apply(cfg.StatePath)
+	if err != nil {
+		logger.Error("migrations", "error", err)
+		os.Exit(1)
+	}
+	for _, name := range applied {
+		logger.Info("state migrated", "migration", name)
 	}
 
 	st, err := store.Open(cfg.StatePath)

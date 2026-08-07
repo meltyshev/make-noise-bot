@@ -78,8 +78,6 @@ const (
 	InfoNone         = "Информации нет."
 	RatingNone       = "Рейтинга пока нет."
 	RatingCleared    = "Рейтинг очищен."
-	SubscribeOn      = "Подписка активирована."
-	SubscribeOff     = "Подписка отменена."
 	RestrictOn       = "Ввод кодов ограничен."
 	RestrictOff      = "Ограничение на ввод кодов снято."
 	BruteForceOn     = "Режим перебора активирован."
@@ -159,6 +157,24 @@ const (
 	SubscribersTitle        = "Подписчики:"
 	GameSubscribersTitle    = "Подписчики текущей игры:"
 	GameSubscribersCountFmt = "Подписчики игры: %d"
+
+	SubscriptionTitleFmt    = "%s\n\nЧто получает этот чат:"
+	ButtonAllUpdates        = "Всё"
+	ButtonNotificationsOnly = "Только уведомления"
+	ButtonUnsubscribe       = "Отписать"
+
+	KindLevelUp  = "АП!"
+	KindHints    = "Подсказки"
+	KindSpoilers = "Спойлеры"
+	KindQuestion = "Задание"
+	KindNotes    = "Примечания"
+
+	KindShortLevelUp  = "АП"
+	KindShortHints    = "подсказки"
+	KindShortSpoilers = "спойлеры"
+	KindShortQuestion = "задание"
+	KindShortNotes    = "примечания"
+	KindsAll          = "всё"
 
 	FormatsTitle     = "Форматы кода:"
 	ButtonManual     = "Ввести вручную"

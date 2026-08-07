@@ -105,7 +105,7 @@ func TestRenderFormatsMenu(t *testing.T) {
 	d := testData()
 
 	_, keyboard := renderFormatsMenu(d)
-	if b := findButton(t, keyboard, texts.PresetDR+" ✓"); b.CallbackData != "gc:fmtp:1" {
+	if b := findButton(t, keyboard, mark(true, texts.PresetDR)); b.CallbackData != "gc:fmtp:1" {
 		t.Errorf("active preset = %q", b.CallbackData)
 	}
 	if b := findButton(t, keyboard, texts.PresetDigitsOnly); b.CallbackData != "gc:fmtp:0" {

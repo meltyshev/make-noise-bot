@@ -39,7 +39,7 @@ func TestUpdatePersistsAndReloads(t *testing.T) {
 		d.Managers = []int64{7}
 		d.Chats[42] = &Chat{ID: 42, Type: "group", Permission: PermissionAllowed, Title: "Team"}
 		level := 3
-		d.Game = &Game{Engine: "DozorClassic", City: "e-burg", LevelNumber: &level, Subscribers: []int64{42}}
+		d.Game = &Game{Engine: "DozorClassic", City: "e-burg", LevelNumber: &level, Subscriptions: Subscriptions{AllUpdates(42)}}
 	})
 	if err != nil {
 		t.Fatalf("Update: %v", err)
@@ -58,7 +58,8 @@ func TestUpdatePersistsAndReloads(t *testing.T) {
 		t.Errorf("chat = %+v, ok=%v", chat, ok)
 	}
 	game, ok := reopened.Game()
-	if !ok || game.LevelNumber == nil || *game.LevelNumber != 3 || !game.HasSubscriber(42) {
+	sub, subscribed := game.Subscriptions.Find(42)
+	if !ok || game.LevelNumber == nil || *game.LevelNumber != 3 || !subscribed || !sub.All() {
 		t.Errorf("game = %+v, ok=%v", game, ok)
 	}
 }
@@ -66,17 +67,17 @@ func TestUpdatePersistsAndReloads(t *testing.T) {
 func TestGameReturnsCopies(t *testing.T) {
 	s, _ := openTemp(t)
 	if err := s.Update(func(d *Data) {
-		d.Game = &Game{Engine: "DozorLite", Subscribers: []int64{1}}
+		d.Game = &Game{Engine: "DozorLite", Subscriptions: Subscriptions{AllUpdates(1)}}
 	}); err != nil {
 		t.Fatal(err)
 	}
 
 	game, _ := s.Game()
-	game.Subscribers[0] = 999
+	game.Subscriptions[0].ChatID = 999
 	game.Engine = "hacked"
 
 	fresh, _ := s.Game()
-	if fresh.Subscribers[0] != 1 || fresh.Engine != "DozorLite" {
+	if fresh.Subscriptions[0].ChatID != 1 || fresh.Engine != "DozorLite" {
 		t.Error("Game() must return an independent copy")
 	}
 }
@@ -107,7 +108,7 @@ func TestRating(t *testing.T) {
 func TestEmptyListsMarshalAsArrays(t *testing.T) {
 	s, _ := openTemp(t)
 	if err := s.Update(func(d *Data) {
-		d.GameConfig.Subscribers = []int64{}
+		d.GameConfig.Subscriptions = Subscriptions{}
 		d.GameConfig.CodeFormats = [][]string{}
 		d.Game = &Game{Engine: "DozorClassic"}
 	}); err != nil {
@@ -116,8 +117,8 @@ func TestEmptyListsMarshalAsArrays(t *testing.T) {
 
 	cfg := s.GameConfig()
 	for name, value := range map[string]any{
-		"subscribers":  cfg.Subscribers,
-		"code_formats": cfg.CodeFormats,
+		"subscriptions": cfg.Subscriptions,
+		"code_formats":  cfg.CodeFormats,
 	} {
 		raw, err := json.Marshal(value)
 		if err != nil {
@@ -131,7 +132,7 @@ func TestEmptyListsMarshalAsArrays(t *testing.T) {
 	// Copies of a game loaded from a hand-edited state with null lists must
 	// also come out as [].
 	game, _ := s.Game()
-	if game.Subscribers == nil || game.SolvedSpoilers == nil {
+	if game.Subscriptions == nil || game.SolvedSpoilers == nil {
 		t.Error("game list copies must be non-nil")
 	}
 }
