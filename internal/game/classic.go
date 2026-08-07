@@ -426,7 +426,7 @@ func (s *classicSnapshot) Hint() (int, string) {
 	return 0, ""
 }
 
-func (s *classicSnapshot) SolvedSpoilers() []int {
+func (s *classicSnapshot) Spoilers() []Spoiler {
 	if s.level == nil {
 		return nil
 	}
@@ -435,19 +435,19 @@ func (s *classicSnapshot) SolvedSpoilers() []int {
 		return nil
 	}
 
-	var solved []int
+	var out []Spoiler
 	for _, item := range spoilers {
 		spoiler, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
-		if truthy(spoiler["spoilerSolved"]) {
-			if number, ok := asInt(spoiler["spoilerNumber"]); ok {
-				solved = append(solved, number)
-			}
+		number, ok := asInt(spoiler["spoilerNumber"])
+		if !ok {
+			continue
 		}
+		out = append(out, Spoiler{Number: number, Open: truthy(spoiler["spoilerSolved"])})
 	}
-	return solved
+	return out
 }
 
 func classicHazard(hazard string) string {

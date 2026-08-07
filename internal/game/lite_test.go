@@ -92,6 +92,82 @@ func TestLiteLoadAndSnapshot(t *testing.T) {
 	}
 }
 
+// The fixtures below are the spoiler markup of a real lite page.
+const (
+	liteOpenSpoiler = `<!--levelTextBegin--><p>Задание</p><div class=spoiler><strong>Примечания к заданию</strong>: ` +
+		`<!--taskNotes--><p>ФО: слово</p><!--taskNotesEnd--></div><br/><!--levelTextEnd-->` +
+		`<div style='font-size:120%;'><div class=spoiler><div class=title style='padding-left:0'>Спойлер</div>` +
+		`<p>55.058638, 82.974920</p>` + "\n" + `<p><img src="http://classic.dzzzr.ru/uploaded/x.png" alt="" /></p></div></div>` +
+		`<!--bonusCodeCount 1--><!--mainCodeCount 6-->`
+
+	liteClosedSpoiler = `<!--levelTextEnd--><p>В этом задании есть спойлер № 1. Чтобы увидеть его введите специальный код.` +
+		`<form  method=post data-ajax='false'><input type=hidden name=action value=spoilerCode>` +
+		`<input type=text size=30 placeholder='код спойлера' id=spoilerCode name=spoilerCode>` +
+		`<input id=spoilerCodeBtn type=submit value='показать спойлер'></form></p><!--bonusCodeCount 1-->`
+)
+
+func TestLiteSpoilerOpen(t *testing.T) {
+	snap := &liteSnapshot{link: "https://lite.dzzzr.ru/e-burg/go/", data: liteOpenSpoiler}
+
+	spoilers := snap.Spoilers()
+	if len(spoilers) != 1 {
+		t.Fatalf("spoilers = %d, want 1", len(spoilers))
+	}
+	if !spoilers[0].Open || spoilers[0].Number != 1 {
+		t.Errorf("spoiler = %+v, want open number 1", spoilers[0])
+	}
+	if !strings.Contains(spoilers[0].Text, "55.058638, 82.974920") {
+		t.Errorf("text lost the coordinates: %q", spoilers[0].Text)
+	}
+	if !strings.Contains(spoilers[0].Text, "x.png") {
+		t.Errorf("text lost the image: %q", spoilers[0].Text)
+	}
+	// The notes carry their own spoiler class inside the level text.
+	if strings.Contains(spoilers[0].Text, "Примечания") {
+		t.Errorf("task notes leaked into the spoiler: %q", spoilers[0].Text)
+	}
+	if strings.Contains(spoilers[0].Text, "Спойлер") {
+		t.Errorf("title leaked into the text: %q", spoilers[0].Text)
+	}
+}
+
+func TestLiteSpoilerClosed(t *testing.T) {
+	snap := &liteSnapshot{link: "https://lite.dzzzr.ru/e-burg/go/", data: liteClosedSpoiler}
+
+	spoilers := snap.Spoilers()
+	if len(spoilers) != 1 {
+		t.Fatalf("spoilers = %d, want 1", len(spoilers))
+	}
+	if spoilers[0].Open || spoilers[0].Number != 1 || spoilers[0].Text != "" {
+		t.Errorf("spoiler = %+v, want closed number 1 without text", spoilers[0])
+	}
+}
+
+func TestLiteSpoilersMixed(t *testing.T) {
+	data := `<!--levelTextEnd-->` +
+		`<div style='font-size:120%;'><div class=spoiler><div class=title>Спойлер</div><p>первый</p></div></div>` +
+		`<p>В этом задании есть спойлер № 2. Чтобы увидеть его введите специальный код.<form></form></p>` +
+		`<!--bonusCodeCount 1-->`
+
+	spoilers := (&liteSnapshot{link: "https://lite.dzzzr.ru/e-burg/go/", data: data}).Spoilers()
+	if len(spoilers) != 2 {
+		t.Fatalf("spoilers = %+v, want 2", spoilers)
+	}
+	if !spoilers[0].Open || spoilers[0].Number != 1 || spoilers[0].Text != "первый" {
+		t.Errorf("first = %+v", spoilers[0])
+	}
+	if spoilers[1].Open || spoilers[1].Number != 2 {
+		t.Errorf("second = %+v", spoilers[1])
+	}
+}
+
+func TestLiteWithoutSpoilers(t *testing.T) {
+	data := `<!--levelTextEnd--><!--bonusCodeCount 1--><!--mainCodeCount 6-->`
+	if spoilers := (&liteSnapshot{data: data}).Spoilers(); len(spoilers) != 0 {
+		t.Errorf("spoilers = %+v, want none", spoilers)
+	}
+}
+
 func TestLiteEnterCodeMultipart(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if ct := r.Header.Get("Content-Type"); !strings.HasPrefix(ct, "multipart/form-data") {

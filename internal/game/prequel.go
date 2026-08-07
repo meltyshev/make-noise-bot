@@ -165,7 +165,7 @@ func (s *prequelSnapshot) Progress() string         { return "" }
 func (s *prequelSnapshot) Question() string         { return "" }
 func (s *prequelSnapshot) Notes() string            { return "" }
 func (s *prequelSnapshot) Hint() (int, string)      { return 0, "" }
-func (s *prequelSnapshot) SolvedSpoilers() []int    { return nil }
+func (s *prequelSnapshot) Spoilers() []Spoiler      { return nil }
 
 func (s *prequelSnapshot) Sectors() []Sector {
 	blockMatch := prequelSectorsRe.FindStringSubmatch(s.data)

@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -73,6 +74,13 @@ var (
 	liteProgressRe    = regexp.MustCompile(`\(Всего - (\d+) ?(, для прохождения достаточно любых (\d+) ?)?, принято - (\d+)\)`)
 	liteTimeRe        = regexp.MustCompile(`<!--timeOnLevelBegin (\d+) timeOnLevelEnd-->`)
 	liteHintsRe       = regexp.MustCompile(`(?s)<!--LevelClue(\d)Text-->(.*?)<!--LevelClue\dTextEnd-->`)
+
+	// Spoilers live between the level text and the code counts, either as an
+	// open block or as a line offering the form to unlock them.
+	liteSpoilerAreaRe   = regexp.MustCompile(`(?s)<!--levelTextEnd-->(.*?)(?:<!--bonusCodeCount|<!--mainCodeCount|<!--difficultyCods|<div class='dcodes'|<p>Введите код)`)
+	liteSpoilerOpenRe   = regexp.MustCompile(`<div class=['"]?spoiler['"]?[^>]*>`)
+	liteSpoilerTitleRe  = regexp.MustCompile(`(?is)<div class=['"]?title['"]?[^>]*>\s*Спойлер\s*(?:№\s*)?(\d*)[^<]*</div>`)
+	liteSpoilerClosedRe = regexp.MustCompile(`(?i)спойлер\s*№\s*(\d+)`)
 )
 
 func startLite(cfg store.GameConfig) *store.Game {
@@ -304,7 +312,107 @@ func (s *liteSnapshot) Hint() (int, string) {
 	return number, htmltext.Convert(last[2], s.link)
 }
 
-func (s *liteSnapshot) SolvedSpoilers() []int { return nil }
+// Spoilers reads both forms and numbers them by their order on the page,
+// since only the closed ones name their number.
+func (s *liteSnapshot) Spoilers() []Spoiler {
+	area := liteSpoilerAreaRe.FindStringSubmatch(s.data)
+	if area == nil {
+		return nil
+	}
+	region := area[1]
+
+	type entry struct {
+		at     int
+		number int
+		open   bool
+		text   string
+	}
+	var (
+		entries []entry
+		blocks  [][2]int
+	)
+
+	for _, marker := range liteSpoilerOpenRe.FindAllStringIndex(region, -1) {
+		if insideAny(blocks, marker[0]) {
+			continue
+		}
+		body, after := divBody(region, marker[1])
+		blocks = append(blocks, [2]int{marker[0], after})
+
+		number := 0
+		if title := liteSpoilerTitleRe.FindStringSubmatchIndex(body); title != nil {
+			if digits := body[title[2]:title[3]]; digits != "" {
+				number, _ = strconv.Atoi(digits)
+			}
+			body = body[title[1]:]
+		}
+		entries = append(entries, entry{
+			at:     marker[0],
+			number: number,
+			open:   true,
+			text:   htmltext.Convert(body, s.link),
+		})
+	}
+
+	for _, closed := range liteSpoilerClosedRe.FindAllStringSubmatchIndex(region, -1) {
+		if insideAny(blocks, closed[0]) {
+			continue
+		}
+		number, err := strconv.Atoi(region[closed[2]:closed[3]])
+		if err != nil {
+			continue
+		}
+		entries = append(entries, entry{at: closed[0], number: number})
+	}
+
+	sort.Slice(entries, func(i, j int) bool { return entries[i].at < entries[j].at })
+
+	spoilers := make([]Spoiler, 0, len(entries))
+	for i, item := range entries {
+		if item.number == 0 {
+			item.number = i + 1
+		}
+		spoilers = append(spoilers, Spoiler{Number: item.number, Open: item.open, Text: item.text})
+	}
+	return spoilers
+}
+
+// insideAny reports whether a position falls into an open spoiler, where a
+// mention of a spoiler number belongs to its text.
+func insideAny(blocks [][2]int, at int) bool {
+	for _, block := range blocks {
+		if at >= block[0] && at < block[1] {
+			return true
+		}
+	}
+	return false
+}
+
+// divBody returns the content of a div whose opening tag ends at from, and
+// the position right after its closing tag.
+func divBody(region string, from int) (string, int) {
+	depth := 1
+	for at := from; at < len(region); {
+		opening := strings.Index(region[at:], "<div")
+		closing := strings.Index(region[at:], "</div>")
+		if closing < 0 {
+			break
+		}
+
+		if opening >= 0 && opening < closing {
+			depth++
+			at += opening + len("<div")
+			continue
+		}
+
+		depth--
+		if depth == 0 {
+			return region[from : at+closing], at + closing + len("</div>")
+		}
+		at += closing + len("</div>")
+	}
+	return region[from:], len(region)
+}
 
 func liteHazard(hazard string) string {
 	if hazard == "null" {

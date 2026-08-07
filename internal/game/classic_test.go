@@ -84,8 +84,15 @@ func TestClassicLoadAndSnapshot(t *testing.T) {
 		t.Errorf("Hint = (%d, %q), want (1, Первая)", hintNumber, hintText)
 	}
 
-	if got := snap.SolvedSpoilers(); len(got) != 1 || got[0] != 2 {
-		t.Errorf("SolvedSpoilers = %v, want [2]", got)
+	spoilers := snap.Spoilers()
+	if len(spoilers) != 2 {
+		t.Fatalf("Spoilers = %+v, want 2", spoilers)
+	}
+	if spoilers[0].Number != 2 || !spoilers[0].Open {
+		t.Errorf("first spoiler = %+v, want open number 2", spoilers[0])
+	}
+	if spoilers[1].Number != 3 || spoilers[1].Open {
+		t.Errorf("second spoiler = %+v, want closed number 3", spoilers[1])
 	}
 
 	sectors := snap.Sectors()

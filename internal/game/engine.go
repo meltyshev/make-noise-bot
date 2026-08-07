@@ -41,6 +41,14 @@ type Sector struct {
 	Codes []SectorCode
 }
 
+// Spoiler is one spoiler of a level. Text is filled once it opens, and only
+// by engines that publish it.
+type Spoiler struct {
+	Number int
+	Open   bool
+	Text   string
+}
+
 // Snapshot is one loaded view of the engine state.
 type Snapshot interface {
 	LevelNumber() *int        // nil when there is no level
@@ -49,7 +57,7 @@ type Snapshot interface {
 	Notes() string            // "" when unavailable
 	Sectors() []Sector        // nil when unavailable
 	Hint() (int, string)      // 0, "" when there is no hint
-	SolvedSpoilers() []int    // nil when unsupported or no level
+	Spoilers() []Spoiler      // nil when unsupported or no level
 	TimeOnLevel() (int, bool) // seconds, false when the engine hides it
 }
 

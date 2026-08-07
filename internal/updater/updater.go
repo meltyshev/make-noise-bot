@@ -143,15 +143,28 @@ func (u *Updater) tick(ctx context.Context) {
 		}
 	}
 
-	solved := snap.SolvedSpoilers()
-	newSolved := diff(solved, currentSolved)
+	spoilers := snap.Spoilers()
+	var open []int
+	for _, spoiler := range spoilers {
+		if spoiler.Open {
+			open = append(open, spoiler.Number)
+		}
+	}
+
+	newSolved := diff(open, currentSolved)
 	if len(newSolved) > 0 {
-		if err := u.store.UpdateGame(func(g *store.Game) { g.SolvedSpoilers = solved }); err != nil {
+		if err := u.store.UpdateGame(func(g *store.Game) { g.SolvedSpoilers = open }); err != nil {
 			u.report(err)
 			return
 		}
-		for _, spoiler := range newSolved {
-			u.broadcast(ctx, wantSpoilers, fmt.Sprintf(texts.SpoilerSolved, spoiler), false)
+		for _, number := range newSolved {
+			notice := fmt.Sprintf(texts.SpoilerSolved, number)
+			// Engines that publish the spoiler send it along, like a task.
+			if text := spoilerText(spoilers, number); text != "" {
+				u.broadcast(ctx, wantSpoilers, notice+"\n\n"+text, true)
+			} else {
+				u.broadcast(ctx, wantSpoilers, notice, false)
+			}
 		}
 	}
 }

@@ -153,7 +153,7 @@ func (s fakeSnapshot) Question() string         { return s.question }
 func (s fakeSnapshot) Notes() string            { return s.notes }
 func (s fakeSnapshot) Sectors() []game.Sector   { return s.sectors }
 func (s fakeSnapshot) Hint() (int, string)      { return 0, "" }
-func (s fakeSnapshot) SolvedSpoilers() []int    { return nil }
+func (s fakeSnapshot) Spoilers() []game.Spoiler { return nil }
 func (s fakeSnapshot) TimeOnLevel() (int, bool) { return 0, false }
 
 func TestLevelTaskIgnoresProgress(t *testing.T) {

@@ -82,6 +82,15 @@ func levelTask(snap game.Snapshot) string {
 	return hex.EncodeToString(digest.Sum(nil))[:16]
 }
 
+func spoilerText(spoilers []game.Spoiler, number int) string {
+	for _, spoiler := range spoilers {
+		if spoiler.Number == number {
+			return spoiler.Text
+		}
+	}
+	return ""
+}
+
 func timeOnLevel(snap game.Snapshot) *int {
 	seconds, ok := snap.TimeOnLevel()
 	if !ok {
