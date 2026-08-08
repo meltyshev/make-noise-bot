@@ -42,6 +42,18 @@ func TestConvert(t *testing.T) {
 			want:     "а\nhttps://example.com/x.jpg",
 		},
 		{
+			// Classic levels wrap every picture in a link to itself, which
+			// would otherwise render as a padded anchor around its own URL.
+			name:     "picture linking to itself becomes one bare url",
+			fragment: `<p><a href="../../uploaded/games/1565/6.0.jpg" target="_blank"><img src="../../uploaded/games/1565/6.0.jpg" alt="" width="400" /></a></p>`,
+			want:     "https://example.com/uploaded/games/1565/6.0.jpg",
+		},
+		{
+			name:     "picture inside a link elsewhere keeps the link",
+			fragment: `<a href="/page"><img src="/x.jpg"></a>`,
+			want:     `<a href="https://example.com/page">https://example.com/x.jpg</a>`,
+		},
+		{
 			name:     "script and style are dropped",
 			fragment: "до<script>alert(1)</script><style>b{}</style>после",
 			want:     "допосле",

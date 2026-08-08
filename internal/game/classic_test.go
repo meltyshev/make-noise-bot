@@ -10,7 +10,8 @@ import (
 )
 
 // classicPayload is shaped like the real classic API answer: junk before the
-// JSON, an unquoted null key, numbers arriving as strings.
+// JSON, an unquoted null key, numbers arriving as strings, and hints whose
+// quotes are escaped twice.
 const classicPayload = `jQuery163({"level": {` +
 	`"levelNumber": "3",` +
 	`"neededCodes": "0",` +
@@ -22,7 +23,7 @@ const classicPayload = `jQuery163({"level": {` +
 	`"question": "<b>Вопрос</b><br>тут",` +
 	`"locationComment": "<p>Комментарий</p>",` +
 	`"koline": " основные коды: 1.2, <span>1.3:вз</span>, null<br> бонусные коды: 2.1<br>",` +
-	`"hint1": "Первая",` +
+	`"hint1": "От каждой \\\"птицы\\\" нужен хвост",` +
 	`"hint2": "",` +
 	`"spoilers": [{"spoilerSolved": 1, "spoilerNumber": "2"}, {"spoilerSolved": 0, "spoilerNumber": "3"}]` +
 	`}, null:{"x": 1}})`
@@ -55,13 +56,15 @@ func TestClassicLoadAndSnapshot(t *testing.T) {
 		t.Errorf("Progress = %q, want %q", got, want)
 	}
 	// The location comment rides along with the task, labelled.
-	if got, want := snap.Question(), "<b>Вопрос</b>\nтут\n\n<b>Примечания:</b>\nКомментарий"; got != want {
+	if got, want := snap.Question(), "<b>Вопрос</b>\nтут\n\n<b>Примечания к заданию:</b>\nКомментарий"; got != want {
 		t.Errorf("Question = %q, want %q", got, want)
 	}
 
+	// The doubled backslashes are gone, so the quotes reach Telegram as
+	// quotes rather than as \" .
 	hintNumber, hintText := snap.Hint()
-	if hintNumber != 1 || hintText != "Первая" {
-		t.Errorf("Hint = (%d, %q), want (1, Первая)", hintNumber, hintText)
+	if want := "От каждой &#34;птицы&#34; нужен хвост"; hintNumber != 1 || hintText != want {
+		t.Errorf("Hint = (%d, %q), want (1, %q)", hintNumber, hintText, want)
 	}
 
 	spoilers := snap.Spoilers()

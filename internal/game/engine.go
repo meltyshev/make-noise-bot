@@ -226,7 +226,9 @@ func asInt(v any) (int, bool) {
 func asString(v any) string {
 	switch value := v.(type) {
 	case string:
-		return value
+		// The engine escapes the level HTML for JavaScript before it encodes
+		// the JSON, so quotes arrive still escaped and need unescaping twice.
+		return strings.ReplaceAll(value, `\"`, `"`)
 	case json.Number:
 		return value.String()
 	case nil:

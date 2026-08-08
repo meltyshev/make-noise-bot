@@ -74,7 +74,7 @@ const (
 	GameOver         = "Игра окончена."
 	GameCannotStart  = "Не могу получить сессию."
 	QuestionNone     = "Задания нет."
-	NotesHeader      = "Примечания:"
+	NotesHeader      = "Примечания к заданию:"
 	InfoNone         = "Информации нет."
 	RatingNone       = "Рейтинга пока нет."
 	RatingCleared    = "Рейтинг очищен."

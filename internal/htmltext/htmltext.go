@@ -68,6 +68,39 @@ func Convert(fragment, baseURL string) string {
 		return "", false
 	}
 
+	// Tags carry no width, so spacing is decided from the last character of
+	// the text written so far, not from the builder's tail.
+	var (
+		lastByte  byte
+		needSpace bool
+	)
+	writeText := func(escaped string) {
+		if escaped == "" {
+			return
+		}
+		if needSpace && escaped[0] != ' ' {
+			b.WriteString(" ")
+		}
+		needSpace = false
+		b.WriteString(escaped)
+		lastByte = escaped[len(escaped)-1]
+	}
+	writeNewline := func() {
+		b.WriteString("\n")
+		lastByte = '\n'
+		needSpace = false
+	}
+	// writeURL stands an image in for its address, spaced off the text around
+	// it only where that text does not already provide the gap.
+	writeURL := func(u string) {
+		if lastByte != 0 && lastByte != ' ' && lastByte != '\n' {
+			b.WriteString(" ")
+		}
+		b.WriteString(u)
+		lastByte = u[len(u)-1]
+		needSpace = true
+	}
+
 	open := func(t openTag) {
 		stack = append(stack, t)
 		b.WriteString(t.raw)
@@ -114,7 +147,7 @@ func Convert(fragment, baseURL string) string {
 				hideOutput = true
 			case "div", "p", "br":
 				if !hideOutput {
-					b.WriteString("\n")
+					writeNewline()
 				}
 			case "a":
 				if href, ok := attr(tok, "href"); ok {
@@ -127,7 +160,7 @@ func Convert(fragment, baseURL string) string {
 				}
 			case "img":
 				if src, ok := attr(tok, "src"); ok {
-					b.WriteString(" " + html.EscapeString(makeURL(src)) + " ")
+					writeURL(html.EscapeString(makeURL(src)))
 				}
 			default:
 				if name, ok := inlineTags[tok.Data]; ok {
@@ -138,10 +171,10 @@ func Convert(fragment, baseURL string) string {
 		case xhtml.SelfClosingTagToken:
 			switch tok.Data {
 			case "br":
-				b.WriteString("\n")
+				writeNewline()
 			case "img":
 				if src, ok := attr(tok, "src"); ok {
-					b.WriteString(" " + html.EscapeString(makeURL(src)) + " ")
+					writeURL(html.EscapeString(makeURL(src)))
 				}
 			}
 
@@ -150,7 +183,7 @@ func Convert(fragment, baseURL string) string {
 			case "script", "style":
 				hideOutput = false
 			case "div", "p":
-				b.WriteString("\n")
+				writeNewline()
 			case "a":
 				closeTag("a")
 			default:
@@ -160,8 +193,8 @@ func Convert(fragment, baseURL string) string {
 			}
 
 		case xhtml.TextToken:
-			if !hideOutput && tok.Data != "" {
-				b.WriteString(html.EscapeString(whitespaceRe.ReplaceAllString(tok.Data, " ")))
+			if !hideOutput {
+				writeText(html.EscapeString(whitespaceRe.ReplaceAllString(tok.Data, " ")))
 			}
 		}
 	}
@@ -173,8 +206,33 @@ func Convert(fragment, baseURL string) string {
 	text := multiSpaceRe.ReplaceAllString(b.String(), " ")
 	text = spacesAfterNLRe.ReplaceAllString(text, "\n")
 	text = spacesBeforeNLRe.ReplaceAllString(text, "\n")
+	// Organizers pad levels with rows of <br>; one blank line is enough.
 	text = extraNewlinesRe.ReplaceAllString(text, "\n\n")
-	return strings.TrimSpace(text)
+	return strings.TrimSpace(unwrapSelfLinks(text))
+}
+
+// unwrapSelfLinks turns an anchor whose whole text is its own target back into
+// a bare URL. A picture wrapped in a link to itself converts to exactly that,
+// and Telegram previews a plain URL where it leaves the anchor alone.
+func unwrapSelfLinks(text string) string {
+	tokens := tokenize(text)
+
+	var b strings.Builder
+	for i := 0; i < len(tokens); i++ {
+		tok := tokens[i]
+		if tok.isTag && !tok.closing && tok.name == "a" && i+2 < len(tokens) {
+			inner, end := tokens[i+1], tokens[i+2]
+			href, ok := hrefOf(tok.raw)
+			if ok && !inner.isTag && end.isTag && end.closing && end.name == "a" &&
+				strings.TrimSpace(inner.raw) == href {
+				b.WriteString(href)
+				i += 2
+				continue
+			}
+		}
+		b.WriteString(tok.raw)
+	}
+	return b.String()
 }
 
 // geo: links stay for LinkCoordinates to rewrite.
