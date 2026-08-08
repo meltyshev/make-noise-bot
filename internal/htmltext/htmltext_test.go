@@ -54,6 +54,13 @@ func TestConvert(t *testing.T) {
 			want:     `<a href="https://example.com/page">https://example.com/x.jpg</a>`,
 		},
 		{
+			// A paragraph holding one &nbsp; is how word processors leave a
+			// blank line behind, and it must not survive as a line of its own.
+			name:     "non-breaking spaces are whitespace",
+			fragment: `<p>Верно!</p><p>&nbsp;</p><p>по координатам:&nbsp;55.7</p>`,
+			want:     "Верно!\n\nпо координатам: 55.7",
+		},
+		{
 			name:     "script and style are dropped",
 			fragment: "до<script>alert(1)</script><style>b{}</style>после",
 			want:     "допосле",

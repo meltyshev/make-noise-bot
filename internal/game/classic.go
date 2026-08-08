@@ -168,21 +168,6 @@ func (c *Classic) relogin(ctx context.Context) bool {
 }
 
 func (c *Classic) EnterCode(ctx context.Context, code string, pinnedLevel *int) EnterCodeResult {
-	result, sessionSuspect := c.enterCodeOnce(ctx, code, pinnedLevel)
-	if sessionSuspect && c.relogin(ctx) {
-		result, _ = c.enterCodeOnce(ctx, code, pinnedLevel)
-	}
-	return result
-}
-
-// EnterSpoilerCode sends the code through the usual form: the classic engine
-// has no separate spoiler form and recognises a spoiler code sent as a normal
-// one.
-func (c *Classic) EnterSpoilerCode(ctx context.Context, code string) EnterCodeResult {
-	return c.EnterCode(ctx, code, nil)
-}
-
-func (c *Classic) enterCodeOnce(ctx context.Context, code string, pinnedLevel *int) (EnterCodeResult, bool) {
 	form := url.Values{
 		"action": {"entcod"},
 		"cod":    {encodeCP1251(code)},
@@ -191,7 +176,28 @@ func (c *Classic) enterCodeOnce(ctx context.Context, code string, pinnedLevel *i
 		form.Set("level", fmt.Sprint(*pinnedLevel))
 		form.Set("skvoz", "1")
 	}
+	return c.submit(ctx, form)
+}
 
+// EnterSpoilerCode uses the page's own spoiler form. Only that form produces
+// the "код к спойлеру" statuses; the same code sent as an ordinary one is
+// rejected and counts against the level.
+func (c *Classic) EnterSpoilerCode(ctx context.Context, code string) EnterCodeResult {
+	return c.submit(ctx, url.Values{
+		"action":      {"spoilerCode"},
+		"spoilerCode": {encodeCP1251(code)},
+	})
+}
+
+func (c *Classic) submit(ctx context.Context, form url.Values) EnterCodeResult {
+	result, sessionSuspect := c.submitOnce(ctx, form)
+	if sessionSuspect && c.relogin(ctx) {
+		result, _ = c.submitOnce(ctx, form)
+	}
+	return result
+}
+
+func (c *Classic) submitOnce(ctx context.Context, form url.Values) (EnterCodeResult, bool) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.link, strings.NewReader(form.Encode()))
 	if err != nil {
 		return EnterCodeResult{Message: texts.EngineTimeout}, false
@@ -211,7 +217,7 @@ func (c *Classic) enterCodeOnce(ctx context.Context, code string, pinnedLevel *i
 
 	// A non-redirect answer usually means the session died; retry once
 	// after re-login.
-	c.env.debug("classic-entcod", raw)
+	c.env.debug("classic-"+form.Get("action"), raw)
 	return EnterCodeResult{Message: texts.EngineUnknown}, true
 }
 
@@ -458,7 +464,13 @@ func (s *classicSnapshot) Spoilers() []Spoiler {
 		if !ok {
 			continue
 		}
-		out = append(out, Spoiler{Number: number, Open: truthy(spoiler["spoilerSolved"])})
+		// A closed spoiler carries an empty text, so the answer is the same
+		// shape whether the team has opened it or not.
+		out = append(out, Spoiler{
+			Number: number,
+			Open:   truthy(spoiler["spoilerSolved"]),
+			Text:   htmltext.Convert(asString(spoiler["spoilerText"]), s.link),
+		})
 	}
 	return out
 }

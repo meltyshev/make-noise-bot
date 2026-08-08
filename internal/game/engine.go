@@ -66,8 +66,9 @@ type Engine interface {
 	Link() string
 	// EnterCode never fails hard: transport errors become the result message.
 	EnterCode(ctx context.Context, code string, pinnedLevel *int) EnterCodeResult
-	// EnterSpoilerCode opens a spoiler. Engines without a separate form for
-	// it recognise such codes in the usual one.
+	// EnterSpoilerCode opens a spoiler through the engine's own spoiler form,
+	// which is not the form ordinary codes go to. Prequels have no spoilers
+	// and submit the code as an ordinary one.
 	EnterSpoilerCode(ctx context.Context, code string) EnterCodeResult
 	Load(ctx context.Context) (Snapshot, error)
 }

@@ -14,7 +14,10 @@ import (
 )
 
 var (
-	whitespaceRe     = regexp.MustCompile(`\s+`)
+	// Levels are pasted from word processors, so &nbsp; turns up between
+	// coordinates and as the only content of a paragraph. It counts as
+	// whitespace here, or it survives every trim below.
+	whitespaceRe     = regexp.MustCompile(`[\s\x{00A0}]+`)
 	multiSpaceRe     = regexp.MustCompile(` {2,}`)
 	spacesAfterNLRe  = regexp.MustCompile(`\n +`)
 	spacesBeforeNLRe = regexp.MustCompile(` +\n`)

@@ -25,7 +25,10 @@ const classicPayload = `jQuery163({"level": {` +
 	`"koline": " основные коды: 1.2, <span>1.3:вз</span>, null<br> бонусные коды: 2.1<br>",` +
 	`"hint1": "От каждой \\\"птицы\\\" нужен хвост",` +
 	`"hint2": "",` +
-	`"spoilers": [{"spoilerSolved": 1, "spoilerNumber": "2"}, {"spoilerSolved": 0, "spoilerNumber": "3"}]` +
+	`"spoilers": [` +
+	`{"spoilerText": "<p>Верно!</p>", "spoilerSolved": "1", "spoilerPenalty": "0", "spoilerNumber": "2"},` +
+	`{"spoilerText": "", "spoilerSolved": "", "spoilerPenalty": "0", "spoilerNumber": "3"}` +
+	`]` +
 	`}, null:{"x": 1}})`
 
 func TestClassicLoadAndSnapshot(t *testing.T) {
@@ -71,11 +74,11 @@ func TestClassicLoadAndSnapshot(t *testing.T) {
 	if len(spoilers) != 2 {
 		t.Fatalf("Spoilers = %+v, want 2", spoilers)
 	}
-	if spoilers[0].Number != 2 || !spoilers[0].Open {
-		t.Errorf("first spoiler = %+v, want open number 2", spoilers[0])
+	if spoilers[0].Number != 2 || !spoilers[0].Open || spoilers[0].Text != "Верно!" {
+		t.Errorf("first spoiler = %+v, want open number 2 with its text", spoilers[0])
 	}
-	if spoilers[1].Number != 3 || spoilers[1].Open {
-		t.Errorf("second spoiler = %+v, want closed number 3", spoilers[1])
+	if spoilers[1].Number != 3 || spoilers[1].Open || spoilers[1].Text != "" {
+		t.Errorf("second spoiler = %+v, want closed number 3 with no text", spoilers[1])
 	}
 
 	sectors := snap.Sectors()
@@ -134,14 +137,20 @@ func TestClassicEnterCode(t *testing.T) {
 	}
 }
 
-func TestClassicSpoilerCodeGoesThroughTheUsualForm(t *testing.T) {
+// TestClassicSpoilerCodeUsesTheSpoilerForm: the page's spoiler form posts
+// action=spoilerCode, and only that form answers with the err=55/56 spoiler
+// statuses.
+func TestClassicSpoilerCodeUsesTheSpoilerForm(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
-		if got := r.PostForm.Get("action"); got != "entcod" {
-			t.Errorf("action = %q, want entcod", got)
+		if got := r.PostForm.Get("action"); got != "spoilerCode" {
+			t.Errorf("action = %q, want spoilerCode", got)
 		}
-		if got := r.PostForm.Get("cod"); got != "\xea\xf0\xe8\xef\xf2\xe5\xea\xf1" {
-			t.Errorf("cod = %q, want windows-1251 bytes", got)
+		if got := r.PostForm.Get("spoilerCode"); got != "\xea\xf0\xe8\xef\xf2\xe5\xea\xf1" {
+			t.Errorf("spoilerCode = %q, want windows-1251 bytes", got)
+		}
+		if got := r.PostForm.Get("cod"); got != "" {
+			t.Errorf("cod = %q, want the spoiler code not to reach the code form", got)
 		}
 		w.Header().Set("Location", "?err=55")
 		w.WriteHeader(http.StatusFound)
