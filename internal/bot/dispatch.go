@@ -12,8 +12,9 @@ import (
 	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
 
-// onUpdate dispatches in a fixed order: commands, an open conversation,
-// leave mode, then game statements.
+// onUpdate dispatches in a fixed order: callback queries, the first /start
+// claiming the admin role, commands, an open conversation, leave mode, then
+// game statements.
 func (a *App) onUpdate(ctx context.Context, _ *tgbot.Bot, update *models.Update) {
 	defer a.recoverPanic()
 

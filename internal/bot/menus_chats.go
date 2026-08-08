@@ -18,17 +18,40 @@ func renderChatsList(d *store.Data) (string, [][]models.InlineKeyboardButton) {
 	var keyboard [][]models.InlineKeyboardButton
 	for _, id := range sortByName(d, ids) {
 		chat := d.Chats[id]
-		marker := "❓"
-		switch chat.Permission {
-		case store.PermissionAllowed:
-			marker = "✅"
-		case store.PermissionForbidden:
-			marker = "🚫"
-		}
-		keyboard = append(keyboard, btnRow(btn(marker+" "+d.DisplayName(id), fmt.Sprintf("ch:open:%d", id))))
+		allowed := chat.Permission == store.PermissionAllowed
+		label := labelWithState(d.DisplayName(id), permissionSummary(chat.Permission))
+		keyboard = append(keyboard, btnRow(btn(mark(allowed, label), fmt.Sprintf("ch:open:%d", id))))
 	}
 	keyboard = append(keyboard, btnRow(btn(texts.ButtonClose, "ch:close")))
 	return texts.ChatsChoose, keyboard
+}
+
+// labelWithState shortens the name rather than the state, so a long chat title
+// cannot push the summary past the button's label budget.
+func labelWithState(name, summary string) string {
+	if summary == "" {
+		return name
+	}
+
+	suffix := ": " + summary
+	room := maxLabelRunes - len([]rune(suffix))
+	if runes := []rune(name); len(runes) > room {
+		name = string(runes[:room-3]) + "..."
+	}
+	return name + suffix
+}
+
+// permissionSummary names the states mark() cannot show, and is empty for the
+// allowed one, which the checkmark already covers.
+func permissionSummary(p store.Permission) string {
+	switch p {
+	case store.PermissionRequested:
+		return texts.SummaryRequested
+	case store.PermissionForbidden:
+		return texts.SummaryForbidden
+	default:
+		return ""
+	}
 }
 
 func renderChatActions(chat store.Chat) (string, [][]models.InlineKeyboardButton) {

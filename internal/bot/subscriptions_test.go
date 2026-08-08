@@ -10,10 +10,10 @@ import (
 
 func TestModeSummary(t *testing.T) {
 	if got := modeSummary(store.AllUpdates(1)); got != texts.SummaryAll {
-		t.Errorf("all = %q", got)
+		t.Errorf("modeSummary(AllUpdates) = %q, want %q", got, texts.SummaryAll)
 	}
 	if got := modeSummary(store.OnlyEvents(1)); got != texts.SummaryEvents {
-		t.Errorf("events = %q", got)
+		t.Errorf("modeSummary(OnlyEvents) = %q, want %q", got, texts.SummaryEvents)
 	}
 }
 
@@ -28,24 +28,24 @@ func TestRenderSubscribersList(t *testing.T) {
 
 	// Rows open the per-chat screen instead of switching a mode at once.
 	if b := findButton(t, keyboard, "✓ Команда: всё"); b.CallbackData != "cs:d:-100" {
-		t.Errorf("subscribed chat = %q", b.CallbackData)
+		t.Errorf("subscribed chat callback = %q, want cs:d:-100", b.CallbackData)
 	}
 	if b := findButton(t, keyboard, "✓ ID 555: события"); b.CallbackData != "cs:d:555" {
-		t.Errorf("events-only chat = %q", b.CallbackData)
+		t.Errorf("events-only chat callback = %q, want cs:d:555", b.CallbackData)
 	}
 	if b := findButton(t, keyboard, "Вася"); b.CallbackData != "cs:d:10" {
-		t.Errorf("candidate = %q", b.CallbackData)
+		t.Errorf("candidate callback = %q, want cs:d:10", b.CallbackData)
 	}
 
 	for _, row := range keyboard {
 		if len(row) != 1 {
-			t.Errorf("row has %d buttons, want a single one", len(row))
+			t.Errorf("subscriber row = %d buttons, want 1", len(row))
 		}
 	}
 
 	for _, button := range flatButtons(keyboard) {
 		if strings.Contains(button.Text, "Чужие") || strings.Contains(button.Text, "Аня") {
-			t.Errorf("not-allowed chat offered: %q", button.Text)
+			t.Errorf("subscriber candidates include %q, want only allowed chats", button.Text)
 		}
 	}
 }
@@ -56,7 +56,7 @@ func TestRenderSubscribersGameList(t *testing.T) {
 
 	_, keyboard := renderSubscribers(d, true)
 	if b := findButton(t, keyboard, "✓ Команда: всё"); b.CallbackData != "gs:d:-100" {
-		t.Errorf("game row = %q", b.CallbackData)
+		t.Errorf("game row callback = %q, want gs:d:-100", b.CallbackData)
 	}
 }
 
@@ -66,7 +66,7 @@ func TestRenderSubscriptionDetail(t *testing.T) {
 
 	text, keyboard := renderSubscriptionDetail(d, false, -100, false)
 	if !strings.Contains(text, "Команда") {
-		t.Errorf("title = %q", text)
+		t.Errorf("renderSubscriptionDetail title = %q, want it to name the chat", text)
 	}
 
 	// The current mode is marked, the other one is not.
@@ -77,10 +77,10 @@ func TestRenderSubscriptionDetail(t *testing.T) {
 		t.Errorf("all button = %+v, want unmarked", b)
 	}
 	if b := findButton(t, keyboard, texts.ButtonUnsubscribe); b.CallbackData != "cs:x:-100" {
-		t.Errorf("unsubscribe = %q", b.CallbackData)
+		t.Errorf("unsubscribe callback = %q, want cs:x:-100", b.CallbackData)
 	}
 	if b := findButton(t, keyboard, texts.ButtonBack); b.CallbackData != "cs:list" {
-		t.Errorf("back = %q", b.CallbackData)
+		t.Errorf("back callback = %q, want cs:list", b.CallbackData)
 	}
 }
 
@@ -90,10 +90,10 @@ func TestRenderSubscriptionDetailUnsubscribed(t *testing.T) {
 	_, keyboard := renderSubscriptionDetail(d, false, -100, false)
 	for _, button := range flatButtons(keyboard) {
 		if button.Text == texts.ButtonUnsubscribe {
-			t.Error("unsubscribe offered for a chat with no subscription")
+			t.Error("renderSubscriptionDetail offers unsubscribe, want it hidden for a chat with no subscription")
 		}
 		if strings.HasPrefix(button.Text, "✓") {
-			t.Errorf("a mode is marked for a chat with no subscription: %q", button.Text)
+			t.Errorf("mode label = %q, want no checkmark for a chat with no subscription", button.Text)
 		}
 	}
 }
@@ -106,9 +106,9 @@ func TestRenderSubscriptionDetailSolo(t *testing.T) {
 
 	// Solo screens carry the marker so edits keep rendering standalone.
 	if b := findButton(t, keyboard, texts.ButtonAllUpdates); b.CallbackData != "gs:a:-100:solo" {
-		t.Errorf("all button = %q", b.CallbackData)
+		t.Errorf("all button callback = %q, want gs:a:-100:solo", b.CallbackData)
 	}
 	if b := findButton(t, keyboard, texts.ButtonClose); b.CallbackData != "gs:close" {
-		t.Errorf("close = %q", b.CallbackData)
+		t.Errorf("close callback = %q, want gs:close", b.CallbackData)
 	}
 }

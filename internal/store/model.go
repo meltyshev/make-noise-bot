@@ -3,6 +3,8 @@ package store
 import (
 	"fmt"
 	"slices"
+
+	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
 
 type Permission string
@@ -185,7 +187,7 @@ func (d *Data) DisplayName(id int64) string {
 	if name, ok := d.UserNames[id]; ok && name != "" {
 		return name
 	}
-	return fmt.Sprintf("ID %d", id)
+	return fmt.Sprintf(texts.UnknownNameFmt, id)
 }
 
 func (d *Data) IsManager(userID int64) bool {

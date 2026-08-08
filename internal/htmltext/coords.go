@@ -8,6 +8,8 @@ import (
 	"github.com/meltyshev/make-noise-bot/internal/geo"
 )
 
+var bareURLRe = regexp.MustCompile(`https?://[^\s<>"']+`)
+
 // LinkCoordinates turns coordinates in a converted fragment into map links
 // and rewrites geo: links, which Telegram rejects, to the same map service.
 // Text inside links and monospace blocks is left alone.
@@ -87,8 +89,6 @@ func rewriteGeoHref(tag string, link func(lat, lon float64) string) string {
 	}
 	return `<a href="` + html.EscapeString(link(lat, lon)) + `">`
 }
-
-var bareURLRe = regexp.MustCompile(`https?://[^\s<>"']+`)
 
 // Links returns the URLs a fragment already carries, in order: link targets
 // first, then plain URLs in the text. Call it before LinkCoordinates to keep

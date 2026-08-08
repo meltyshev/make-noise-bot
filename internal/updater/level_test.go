@@ -11,7 +11,7 @@ func at(number int, task string, seconds int) levelState {
 	return levelState{Number: &number, Task: task, Time: &seconds}
 }
 
-// The cases are the ones an organizer can cause during a game.
+// TestIsNewLevel covers the cases an organizer can cause during a game.
 func TestIsNewLevel(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -127,8 +127,8 @@ func TestLevelGone(t *testing.T) {
 	}
 }
 
-// The full message carries the task; events-only chats get the shout
-// instead, which announce() picks per chat.
+// TestLevelMessage pins that the full message carries the task, while
+// events-only chats get the bare shout that announce() picks per chat.
 func TestLevelMessage(t *testing.T) {
 	if got := levelMessage("Найдите памятник"); got != "АП!\n\nНайдите памятник" {
 		t.Errorf("levelMessage with a task = %q, want the shout and the task", got)
@@ -157,13 +157,13 @@ type fakeSnapshot struct {
 	sectors  []game.Sector
 }
 
-func (s fakeSnapshot) LevelNumber() *int        { return s.number }
-func (s fakeSnapshot) Progress() string         { return "" }
-func (s fakeSnapshot) Question() string         { return s.question }
-func (s fakeSnapshot) Sectors() []game.Sector   { return s.sectors }
-func (s fakeSnapshot) Hint() (int, string)      { return 0, "" }
-func (s fakeSnapshot) Spoilers() []game.Spoiler { return nil }
-func (s fakeSnapshot) TimeOnLevel() (int, bool) { return 0, false }
+func (s fakeSnapshot) LevelNumber() *int         { return s.number }
+func (s fakeSnapshot) Progress() string          { return "" }
+func (s fakeSnapshot) Question() string          { return s.question }
+func (s fakeSnapshot) Sectors() []game.Sector    { return s.sectors }
+func (s fakeSnapshot) Hint() (int, string, bool) { return 0, "", false }
+func (s fakeSnapshot) Spoilers() []game.Spoiler  { return nil }
+func (s fakeSnapshot) TimeOnLevel() (int, bool)  { return 0, false }
 
 func TestLevelTaskIgnoresProgress(t *testing.T) {
 	level := fakeSnapshot{

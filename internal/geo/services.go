@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+
+	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
 
 type Service string
@@ -28,13 +30,13 @@ func (s Service) Valid() bool {
 func (s Service) Label() string {
 	switch s {
 	case Yandex:
-		return "Яндекс.Карты"
+		return texts.MapYandex
 	case Google:
-		return "Google Maps"
+		return texts.MapGoogle
 	case TwoGIS:
-		return "2ГИС"
+		return texts.MapTwoGIS
 	case OSM:
-		return "OpenStreetMap"
+		return texts.MapOSM
 	default:
 		return string(s)
 	}

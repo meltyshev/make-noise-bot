@@ -37,9 +37,9 @@ sentence, and ends with a period.
 
 Wrapping with `%w` is for callers that will use `errors.Is` or `errors.As`.
 This project has almost none of those, so the honest reason to wrap is the
-message: the chain of "read state", "open state", "start bot" is what makes a
-one-line log entry diagnosable. Keep wrapping for that, keep the annotation
-informative, and do not add one that only says "it failed".
+message: the chain of "load config", "migrate state", "open state", "start bot"
+is what makes a one-line log entry diagnosable. Keep wrapping for that, keep the
+annotation informative, and do not add one that only says "it failed".
 
 Handle an error once. If a function returns an error, it should not also log
 it. The exceptions are the two top-level loops, where there is nobody left to

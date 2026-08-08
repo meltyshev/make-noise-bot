@@ -94,7 +94,7 @@ linters:
     staticcheck:
       checks:
         - all
-        # Doc comments are not required on internal packages, see docs/style.md.
+        # Package comments are covered by revive/package-comments.
         - -ST1000
         # Naming is covered by revive/var-naming.
         - -ST1003

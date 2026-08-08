@@ -25,7 +25,8 @@ var (
 	tagRe            = regexp.MustCompile(`<[^>]*>`)
 )
 
-// Inline tags are normalized to the canonical Telegram set.
+// inlineTags maps every inline tag an organizer may write onto the canonical
+// Telegram set.
 var inlineTags = map[string]string{
 	"b": "b", "strong": "b",
 	"i": "i", "em": "i",
@@ -238,7 +239,7 @@ func unwrapSelfLinks(text string) string {
 	return b.String()
 }
 
-// geo: links stay for LinkCoordinates to rewrite.
+// supportedLink keeps geo: links, which LinkCoordinates rewrites later.
 func supportedLink(target string) bool {
 	lower := strings.ToLower(target)
 	for _, scheme := range []string{"http://", "https://", "tg://", "geo:"} {

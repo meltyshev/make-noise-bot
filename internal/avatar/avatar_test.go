@@ -40,13 +40,13 @@ func TestGenerateBadInputs(t *testing.T) {
 func TestParseColor(t *testing.T) {
 	c, err := ParseColor("#1a2b3c")
 	if err != nil || c.R != 0x1a || c.G != 0x2b || c.B != 0x3c {
-		t.Errorf("hex6 = %+v, err=%v", c, err)
+		t.Errorf("ParseColor(6-digit hex) = (%+v, %v), want the parsed color", c, err)
 	}
 	c, err = ParseColor("#f0a")
 	if err != nil || c.R != 0xff || c.G != 0x00 || c.B != 0xaa {
-		t.Errorf("hex3 = %+v, err=%v", c, err)
+		t.Errorf("ParseColor(3-digit hex) = (%+v, %v), want the expanded color", c, err)
 	}
 	if _, err := ParseColor("Salmon"); err != nil {
-		t.Errorf("named colors must be case-insensitive: %v", err)
+		t.Errorf("ParseColor(mixed-case name) = %v, want names matched case-insensitively", err)
 	}
 }

@@ -19,7 +19,7 @@ func TestPreviewPicksTheEnginesOwnLink(t *testing.T) {
 
 	options := preview(linked, own)
 	if options.URL == nil {
-		t.Fatalf("no preview chosen for %q", linked)
+		t.Fatalf("preview for %q = none, want the page's own link", linked)
 	}
 	if *options.URL != image {
 		t.Errorf("preview = %q, want the image %q", *options.URL, image)
@@ -33,7 +33,7 @@ func TestPreviewIsOffWithoutOwnLinks(t *testing.T) {
 
 	options := preview(linked, own)
 	if options.URL != nil {
-		t.Errorf("a coordinate link became the preview: %q", *options.URL)
+		t.Errorf("preview = %q, want no coordinate link chosen", *options.URL)
 	}
 	if options.IsDisabled == nil || !*options.IsDisabled {
 		t.Error("preview should be disabled when only our own links remain")

@@ -1,6 +1,6 @@
 package bot
 
-// Registration order defines the /help listing.
+// registerCommands registers every command in the order /help lists them.
 func (a *App) registerCommands() {
 	for _, cmd := range []*Command{
 		cmdNumbersToLetters(),
@@ -42,8 +42,8 @@ func (a *App) registerCommands() {
 	}
 }
 
-// askFlow: with arguments the command answers right away, otherwise it asks
-// and waits for the next message.
+// askFlow answers right away when the command has arguments, and otherwise
+// asks and waits for the next message.
 func askFlow(name, description, ask, required string, run func(c *Ctx, input string)) *Command {
 	return &Command{
 		Name:        name,

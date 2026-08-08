@@ -102,8 +102,8 @@ func TestFormatsRoundTrip(t *testing.T) {
 	}
 }
 
-// Preset labels list every variant they accept, so they cannot drift from
-// the formats behind them.
+// TestPresetLabelsListEveryVariant pins that a preset label names every
+// variant it accepts, so labels cannot drift from the formats behind them.
 func TestPresetLabelsListEveryVariant(t *testing.T) {
 	for _, preset := range formatPresets {
 		for _, group := range preset.Formats {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"log/slog"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -16,20 +17,20 @@ func TestRedact(t *testing.T) {
 	got := Redact(text)
 
 	if strings.Contains(got, token) {
-		t.Errorf("token survived redaction: %q", got)
+		t.Errorf("Redact(text with token) = %q, want the token replaced", got)
 	}
 	if !strings.Contains(got, mask) {
-		t.Errorf("mask missing: %q", got)
+		t.Errorf("Redact(text with token) = %q, want it to contain %q", got, mask)
 	}
 	if !strings.Contains(got, "timeout") {
-		t.Errorf("message lost: %q", got)
+		t.Errorf("Redact(text with token) = %q, want the rest of the message kept", got)
 	}
 }
 
 func TestRegisterIgnoresShortValues(t *testing.T) {
 	Register("abc")
 	if got := Redact("abc def"); got != "abc def" {
-		t.Errorf("short value was redacted: %q", got)
+		t.Errorf("Redact(\"abc def\") = %q, want it unchanged: short values are not registered", got)
 	}
 }
 
@@ -48,13 +49,59 @@ func TestLogHandlerRedacts(t *testing.T) {
 
 	out := buf.String()
 	if strings.Contains(out, token) {
-		t.Errorf("token in log output: %q", out)
+		t.Errorf("log output = %q, want the token replaced", out)
 	}
 	if !strings.Contains(out, "chat_id=42") {
-		t.Errorf("non-secret attrs lost: %q", out)
+		t.Errorf("log output = %q, want chat_id=42 kept", out)
 	}
-	if strings.Count(out, mask) != 3 {
-		t.Errorf("expected message, error and url redacted: %q", out)
+	if got := strings.Count(out, mask); got != 3 {
+		t.Errorf("masks in log output = %d, want 3: the message, the error and the url", got)
+	}
+}
+
+func TestStripURLDropsTheURL(t *testing.T) {
+	const token = "123456789:AAHsecretvaluehere"
+	err := &url.Error{
+		Op:  "Get",
+		URL: "https://api.telegram.org/bot" + token + "/getMe",
+		Err: errors.New("context deadline exceeded"),
+	}
+
+	got := StripURL(err).Error()
+	if strings.Contains(got, token) {
+		t.Errorf("StripURL(url.Error) = %q, want the token gone", got)
+	}
+	if !strings.Contains(got, "context deadline exceeded") {
+		t.Errorf("StripURL(url.Error) = %q, want the cause kept", got)
+	}
+}
+
+func TestStripURLKeepsOtherErrors(t *testing.T) {
+	err := errors.New("Unauthorized")
+	if got := StripURL(err); !errors.Is(got, err) {
+		t.Errorf("StripURL(plain) = %v, want the error unchanged", got)
+	}
+}
+
+// TestGamePasswordIsHidden pins both halves of the promise in
+// docs/architecture.md: the engine login puts the password in a query string,
+// so a transport error must lose the URL and a registered password must be
+// masked wherever the text still carries it.
+func TestGamePasswordIsHidden(t *testing.T) {
+	const password = "correct-horse-battery"
+	Register(password)
+
+	err := &url.Error{
+		Op:  "Get",
+		URL: "https://classic.dzzzr.ru/e-burg/API/login.php?login=team&password=" + password,
+		Err: errors.New("dial tcp: i/o timeout"),
+	}
+
+	if got := StripURL(err).Error(); strings.Contains(got, password) {
+		t.Errorf("StripURL(login error) = %q, want the password gone", got)
+	}
+	if got := Redact(err.Error()); strings.Contains(got, password) {
+		t.Errorf("Redact(login error) = %q, want the password masked", got)
 	}
 }
 
@@ -67,6 +114,6 @@ func TestLogHandlerRedactsGroupsAndWithAttrs(t *testing.T) {
 	logger.Info("ok", slog.Group("g", "inner", token))
 
 	if out := buf.String(); strings.Contains(out, token) {
-		t.Errorf("token in log output: %q", out)
+		t.Errorf("log output = %q, want the token replaced in groups and WithAttrs too", out)
 	}
 }

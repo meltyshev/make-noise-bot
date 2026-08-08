@@ -24,6 +24,7 @@ func (a *App) information(c *Ctx) {
 
 	snap, err := engine.Load(c.ctx)
 	if err != nil {
+		a.log.Warn("engine load failed", "error", err)
 		c.Reply(texts.CannotLoadEngine)
 		return
 	}
@@ -54,7 +55,7 @@ func formatSector(sector game.Sector) string {
 	cell := func(code game.SectorCode) []any {
 		entered := ""
 		if code.Entered {
-			entered = "ok"
+			entered = texts.SectorCodeEntered
 		}
 		return []any{fmt.Sprintf("%d)", code.Number), code.Hazard, entered}
 	}

@@ -16,7 +16,9 @@ type Match struct {
 
 // Level texts are full of numbers, so decimals need at least four fraction
 // digits to count as coordinates. That rejects hazard codes like 1.2 and
-// house numbers while accepting anything a GPS produces.
+// house numbers while accepting anything a GPS produces. The degree sign and
+// the primes are input organizers actually type, not prose, which is why the
+// ASCII-only rule does not reach them.
 var (
 	decimalRe     = regexp.MustCompile(`(?i)([nsсю])?\s*(-?\d{1,3}\.\d{4,})\s*°?\s*([nsсю])?\s*(?:[,;]\s*|\s+)([ewвз])?\s*(-?\d{1,3}\.\d{4,})\s*°?\s*([ewвз])?`)
 	sexagesimalRe = regexp.MustCompile(`(?i)([nsсю])?\s*(\d{1,3})\s*°\s*(\d{1,2}(?:[.,]\d+)?)\s*['′]\s*(?:(\d{1,2}(?:[.,]\d+)?)\s*(?:["″]|''))?\s*([nsсю])?\s*(?:[,;]\s*|\s+)([ewвз])?\s*(\d{1,3})\s*°\s*(\d{1,2}(?:[.,]\d+)?)\s*['′]\s*(?:(\d{1,2}(?:[.,]\d+)?)\s*(?:["″]|''))?\s*([ewвз])?`)

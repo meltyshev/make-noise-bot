@@ -136,13 +136,13 @@ func Mask(pattern string) (matches []string, ok bool) {
 	}
 	re.WriteString("$")
 
-	matcher, err := regexp.Compile(re.String())
+	maskRe, err := regexp.Compile(re.String())
 	if err != nil {
 		return nil, false
 	}
 
 	for _, word := range d.words {
-		if matcher.MatchString(word) {
+		if maskRe.MatchString(word) {
 			matches = append(matches, word)
 		}
 	}

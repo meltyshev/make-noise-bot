@@ -6,6 +6,7 @@ dist/
 docs/
 config.json
 state.json
+debug/
 make-noise-bot
 *.md
 Dockerfile

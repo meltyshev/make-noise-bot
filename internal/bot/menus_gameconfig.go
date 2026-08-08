@@ -118,7 +118,7 @@ func (a *App) gameConfigCallback(c *cb, args []string) {
 		a.conv.Set(c.query.From.ID, c.chatID, "gameconfig", gcField{Field: args[1], ChatID: c.chatID, MsgID: c.msgID})
 		c.answer("")
 		if err := a.send(c.ctx, c.chatID, ask); err != nil {
-			a.reportError(err)
+			a.log.Warn("send message failed", "chat_id", c.chatID, "error", err)
 		}
 	case "fmt":
 		c.answer("")
@@ -144,7 +144,7 @@ func (a *App) gameConfigCallback(c *cb, args []string) {
 		a.conv.Set(c.query.From.ID, c.chatID, "gameconfig", gcField{Field: "code_formats", ChatID: c.chatID, MsgID: c.msgID})
 		c.answer("")
 		if err := a.send(c.ctx, c.chatID, texts.FormatsManualAsk); err != nil {
-			a.reportError(err)
+			a.log.Warn("send message failed", "chat_id", c.chatID, "error", err)
 		}
 	case "reset":
 		err := a.store.Update(func(d *store.Data) { d.GameConfig = store.DefaultGameConfig() })

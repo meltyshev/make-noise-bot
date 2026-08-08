@@ -25,7 +25,7 @@ func cmdPermission() *Command {
 				return
 			}
 
-			chat := &store.Chat{
+			chat := store.Chat{
 				ID:         c.ChatID(),
 				Type:       c.ChatType(),
 				Permission: store.PermissionRequested,
@@ -34,25 +34,30 @@ func cmdPermission() *Command {
 				FirstName:  c.msg.Chat.FirstName,
 				LastName:   c.msg.Chat.LastName,
 			}
-			if err := c.app.store.Update(func(d *store.Data) { d.Chats[chat.ID] = chat }); err != nil {
+			// The store gets its own allocation, so the local chat stays a
+			// value this handler can read after the lock is released.
+			if err := c.app.store.Update(func(d *store.Data) {
+				stored := chat
+				d.Chats[chat.ID] = &stored
+			}); err != nil {
 				c.app.reportError(err)
 				return
 			}
 
 			var text strings.Builder
 			fmt.Fprintf(&text, texts.PermissionRequestTitleFmt, c.app.me.Username)
-			text.WriteString("type: " + chat.Type)
+			fmt.Fprintf(&text, texts.PermissionRequestTypeFmt, chat.Type)
 			for _, field := range []struct{ name, value string }{
-				{"title", chat.Title},
-				{"username", chat.Username},
-				{"first_name", chat.FirstName},
-				{"last_name", chat.LastName},
+				{texts.PermissionFieldTitle, chat.Title},
+				{texts.PermissionFieldUsername, chat.Username},
+				{texts.PermissionFieldFirstName, chat.FirstName},
+				{texts.PermissionFieldLastName, chat.LastName},
 			} {
 				if field.value != "" {
-					fmt.Fprintf(&text, "\n%s: %s", field.name, field.value)
+					fmt.Fprintf(&text, texts.PermissionRequestFieldFmt, field.name, field.value)
 				}
 			}
-			fmt.Fprintf(&text, "\nid: %d", chat.ID)
+			fmt.Fprintf(&text, texts.PermissionRequestIDFmt, chat.ID)
 
 			if err := c.app.sendInline(c.ctx, c.app.adminID(), text.String(), permRequestKeyboard(chat.ID)); err != nil {
 				c.app.log.Warn("send to admin failed", "error", err)

@@ -160,7 +160,7 @@ func btn(label, data string) models.InlineKeyboardButton {
 // the same way, and the mark survives label truncation.
 func mark(active bool, label string) string {
 	if active {
-		return "✓ " + label
+		return texts.ActiveMark + label
 	}
 	return label
 }
@@ -169,13 +169,16 @@ func btnRow(buttons ...models.InlineKeyboardButton) []models.InlineKeyboardButto
 	return buttons
 }
 
+// maxLabelRunes is what fits on a button; a longer label is cut with an
+// ellipsis, so anything that must stay visible has to be inside the budget.
+const maxLabelRunes = 48
+
 func truncateLabel(label string) string {
-	const maxRunes = 48
 	runes := []rune(label)
-	if len(runes) <= maxRunes {
+	if len(runes) <= maxLabelRunes {
 		return label
 	}
-	return string(runes[:maxRunes-3]) + "..."
+	return string(runes[:maxLabelRunes-3]) + "..."
 }
 
 // sortByName orders the ids of a menu list the way they are labelled, so the

@@ -3,6 +3,9 @@
 package secret
 
 import (
+	"errors"
+	"fmt"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -30,6 +33,8 @@ func Register(value string) {
 	values = append(values, value)
 }
 
+// Redact replaces every registered value in s with a mask. Values below the
+// Register threshold are not covered, which is what StripURL is for.
 func Redact(s string) string {
 	mu.RLock()
 	defer mu.RUnlock()
@@ -38,4 +43,15 @@ func Redact(s string) string {
 		s = strings.ReplaceAll(s, value, mask)
 	}
 	return s
+}
+
+// StripURL drops the request URL from a transport error, keeping the operation
+// and the cause. Both the bot token and the game password end up in that URL,
+// and a value too short for Register to accept would survive Redact.
+func StripURL(err error) error {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return fmt.Errorf("%s: %w", urlErr.Op, urlErr.Err)
+	}
+	return err
 }

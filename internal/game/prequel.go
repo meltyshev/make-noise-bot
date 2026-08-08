@@ -17,7 +17,10 @@ const (
 	NameLitePrequel    = "DozorLitePrequel"
 )
 
-// Both prequel engines differ only in their page URL.
+var prequelSectorsRe = regexp.MustCompile(`<strong id=orang>Код сложности:(.*?)</strong>`)
+
+// prequelStatuses is shared by both prequel engines, which differ only in
+// their page URL.
 var prequelStatuses = map[int]string{
 	52: "⚠️ Код к приквелу не принят. Ваша команда уже отправила этот код к приквелу.",
 	53: "❌ Код к приквелу не принят. Вы ввели неверный код.",
@@ -27,8 +30,6 @@ var prequelStatuses = map[int]string{
 }
 
 var prequelAccepted = map[int]bool{54: true}
-
-var prequelSectorsRe = regexp.MustCompile(`<strong id=orang>Код сложности:(.*?)</strong>`)
 
 func startPrequel(ctx context.Context, name string, cfg store.GameConfig, env *Env) (*store.Game, error) {
 	session, err := obtainClassicSession(ctx, env, cfg.City, cfg.Login, cfg.Password)
@@ -162,13 +163,13 @@ type prequelSnapshot struct {
 	data string
 }
 
-// Prequels have a single code board and no levels.
-func (s *prequelSnapshot) LevelNumber() *int        { return new(0) }
-func (s *prequelSnapshot) TimeOnLevel() (int, bool) { return 0, false }
-func (s *prequelSnapshot) Progress() string         { return "" }
-func (s *prequelSnapshot) Question() string         { return "" }
-func (s *prequelSnapshot) Hint() (int, string)      { return 0, "" }
-func (s *prequelSnapshot) Spoilers() []Spoiler      { return nil }
+// LevelNumber is always 0: a prequel has one code board and no levels.
+func (s *prequelSnapshot) LevelNumber() *int         { return new(0) }
+func (s *prequelSnapshot) TimeOnLevel() (int, bool)  { return 0, false }
+func (s *prequelSnapshot) Progress() string          { return "" }
+func (s *prequelSnapshot) Question() string          { return "" }
+func (s *prequelSnapshot) Hint() (int, string, bool) { return 0, "", false }
+func (s *prequelSnapshot) Spoilers() []Spoiler       { return nil }
 
 func (s *prequelSnapshot) Sectors() []Sector {
 	blockMatch := prequelSectorsRe.FindStringSubmatch(s.data)

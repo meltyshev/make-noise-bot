@@ -133,27 +133,6 @@ func TestStripTags(t *testing.T) {
 	}
 }
 
-func balanced(t *testing.T, part string) {
-	t.Helper()
-	var stack []string
-	for _, tok := range tokenize(part) {
-		if !tok.isTag {
-			continue
-		}
-		if tok.closing {
-			if len(stack) == 0 || stack[len(stack)-1] != tok.name {
-				t.Fatalf("unbalanced part: %q", part)
-			}
-			stack = stack[:len(stack)-1]
-		} else {
-			stack = append(stack, tok.name)
-		}
-	}
-	if len(stack) != 0 {
-		t.Fatalf("unclosed tags in part: %q", part)
-	}
-}
-
 func TestSplitShort(t *testing.T) {
 	parts := Split("короткий <b>текст</b>", 100)
 	if len(parts) != 1 || parts[0] != "короткий <b>текст</b>" {
@@ -166,21 +145,21 @@ func TestSplitKeepsTagsBalanced(t *testing.T) {
 	parts := Split(text, 200)
 
 	if len(parts) < 2 {
-		t.Fatalf("expected several parts, got %d", len(parts))
+		t.Fatalf("Split parts = %d, want several", len(parts))
 	}
 	totalWords := 0
 	for _, part := range parts {
 		if utf16Len(part) > 200 {
-			t.Errorf("part exceeds limit: %d units", utf16Len(part))
+			t.Errorf("part = %d UTF-16 units, want at most the limit", utf16Len(part))
 		}
 		balanced(t, part)
 		if !strings.HasPrefix(part, "<b>") || !strings.HasSuffix(part, "</b>") {
-			t.Errorf("bold not carried across parts: %q", part)
+			t.Errorf("part = %q, want the bold tag reopened", part)
 		}
 		totalWords += strings.Count(part, "слово")
 	}
 	if totalWords != 100 {
-		t.Errorf("words lost in split: %d of 100", totalWords)
+		t.Errorf("words after Split = %d, want all 100", totalWords)
 	}
 }
 
@@ -189,7 +168,7 @@ func TestSplitPrefersNewlines(t *testing.T) {
 	for _, part := range Split(strings.TrimSpace(text), 100) {
 		for line := range strings.SplitSeq(part, "\n") {
 			if line != "строка номер такой-то" {
-				t.Errorf("cut mid-line: %q", line)
+				t.Errorf("line = %q, want cuts to land on a line break", line)
 			}
 		}
 	}
@@ -203,7 +182,7 @@ func TestSplitPreBlocks(t *testing.T) {
 	}
 	for _, part := range parts {
 		if !strings.HasPrefix(part, "<pre>") || !strings.HasSuffix(part, "</pre>") {
-			t.Errorf("pre not carried: %q", part)
+			t.Errorf("part = %q, want the pre tag reopened", part)
 		}
 	}
 }
@@ -215,7 +194,7 @@ func TestSplitCountsUTF16(t *testing.T) {
 	}
 	for _, part := range parts {
 		if utf16Len(part) > 10 {
-			t.Errorf("part exceeds utf16 limit: %q", part)
+			t.Errorf("part = %q, want it within the UTF-16 limit", part)
 		}
 	}
 }
@@ -224,7 +203,7 @@ func TestSplitDoesNotCutEntities(t *testing.T) {
 	text := strings.Repeat("x", 95) + "&amp;xyz"
 	for _, part := range Split(text, 100) {
 		if strings.Contains(part, "&am") && !strings.Contains(part, "&amp;") {
-			t.Errorf("entity cut in half: %q", part)
+			t.Errorf("part = %q, want no entity split across parts", part)
 		}
 	}
 }

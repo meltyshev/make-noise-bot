@@ -10,12 +10,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/meltyshev/make-noise-bot/internal/jsonfile"
 	"github.com/meltyshev/make-noise-bot/internal/secret"
+	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
 
 const DefaultUpdateInterval = 5
@@ -32,14 +33,9 @@ type Config struct {
 
 // Load reads the config; a missing file is reported via os.IsNotExist.
 func Load(path string) (*Config, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
 	cfg := &Config{path: path}
-	if err := json.Unmarshal(raw, cfg); err != nil {
-		return nil, fmt.Errorf("parse config %s: %w", path, err)
+	if err := jsonfile.Read(path, cfg); err != nil {
+		return nil, err
 	}
 	cfg.applyDefaults()
 	secret.Register(cfg.Token)
@@ -55,13 +51,10 @@ func (c *Config) applyDefaults() {
 	}
 }
 
-// Save writes the config with mode 0600: it contains the token.
+// Save replaces the config atomically; jsonfile keeps it at mode 0600, which
+// matters because it holds the token.
 func (c *Config) Save() error {
-	raw, err := json.MarshalIndent(c, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(c.path, append(raw, '\n'), 0o600)
+	return jsonfile.Write(c.path, c)
 }
 
 func (c *Config) UpdateInterval() time.Duration {
@@ -88,28 +81,28 @@ func Create(ctx context.Context, path, token string) (*Config, error) {
 
 // Wizard interactively asks for a token, validates it and saves the config.
 func Wizard(ctx context.Context, path string, in io.Reader, out io.Writer) (*Config, error) {
-	fmt.Fprintln(out, "Файл конфигурации не найден - настроим бота.")
-	fmt.Fprintln(out, "Создайте бота у @BotFather в Telegram и получите токен.")
+	fmt.Fprintln(out, texts.WizardNoConfig)
+	fmt.Fprintln(out, texts.WizardCreateBot)
 	fmt.Fprintln(out)
 
 	reader := bufio.NewReader(in)
 	for {
-		fmt.Fprint(out, "Вставьте токен бота: ")
+		fmt.Fprint(out, texts.WizardAskToken)
 
 		line, err := reader.ReadString('\n')
 		token := strings.TrimSpace(line)
 		if token == "" {
 			if err != nil {
-				return nil, errors.New("не введен токен")
+				return nil, errors.New(texts.WizardNoToken)
 			}
 			continue
 		}
 
 		username, checkErr := checkToken(ctx, token)
 		if checkErr != nil {
-			fmt.Fprintf(out, "Токен не подошел (%v), попробуйте еще раз.\n", checkErr)
+			fmt.Fprintf(out, texts.WizardBadToken, checkErr)
 			if err != nil {
-				return nil, errors.New("не введен рабочий токен")
+				return nil, errors.New(texts.WizardNoGoodToken)
 			}
 			continue
 		}
@@ -125,8 +118,8 @@ func Wizard(ctx context.Context, path string, in io.Reader, out io.Writer) (*Con
 			return nil, err
 		}
 
-		fmt.Fprintf(out, "Готово, это @%s. Конфигурация сохранена в %s.\n", username, path)
-		fmt.Fprintf(out, "Теперь отправьте боту /start - первый написавший станет админом.\n\n")
+		fmt.Fprintf(out, texts.WizardSavedFmt, username, path)
+		fmt.Fprint(out, texts.WizardClaimAdmin)
 		return cfg, nil
 	}
 }
@@ -135,13 +128,13 @@ func checkToken(ctx context.Context, token string) (string, error) {
 	link := "https://api.telegram.org/bot" + url.PathEscape(token) + "/getMe"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
 	if err != nil {
-		return "", stripURL(err)
+		return "", secret.StripURL(err)
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", stripURL(err)
+		return "", secret.StripURL(err)
 	}
 	defer resp.Body.Close()
 
@@ -159,13 +152,4 @@ func checkToken(ctx context.Context, token string) (string, error) {
 		return "", errors.New(payload.Description)
 	}
 	return payload.Result.Username, nil
-}
-
-// stripURL drops the request URL from a transport error: it carries the token.
-func stripURL(err error) error {
-	var urlErr *url.Error
-	if errors.As(err, &urlErr) {
-		return fmt.Errorf("%s: %w", urlErr.Op, urlErr.Err)
-	}
-	return err
 }

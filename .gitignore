@@ -6,6 +6,9 @@ coverage.out
 # Runtime files contain the bot token and game credentials.
 config.json
 state.json
+# Left behind only if a write is killed between CreateTemp and Rename.
+.config.json-*
+.state.json-*
 debug/
 data/
 

@@ -6,8 +6,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/meltyshev/make-noise-bot/internal/store"
 )
 
 // litePayload mimics the lite.dzzzr.ru page: marker comments, a progress
@@ -25,14 +23,10 @@ const litePayload = `<html>
 <!--levelNumberBegin-->999<!--levelNumberEnd-->
 </html>`
 
-func liteGame() store.Game {
-	return store.Game{Engine: NameLite, City: "e-burg", Pincode: "pin-1"}
-}
-
 func TestLiteLoadAndSnapshot(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/e-burg/go/" || r.URL.Query().Get("pin") != "pin-1" {
-			t.Errorf("unexpected request: %s", r.URL)
+			t.Errorf("request = %s, want /e-burg/go/ with the pin", r.URL)
 			http.NotFound(w, r)
 			return
 		}
@@ -59,9 +53,9 @@ func TestLiteLoadAndSnapshot(t *testing.T) {
 		t.Errorf("Progress = %q, want %q", got, want)
 	}
 
-	hintNumber, hintText := snap.Hint()
-	if hintNumber != 2 || hintText != "Подсказка <b>два</b>" {
-		t.Errorf("Hint = (%d, %q)", hintNumber, hintText)
+	hintNumber, hintText, hasHint := snap.Hint()
+	if want := "Подсказка <b>два</b>"; hintNumber != 2 || hintText != want || !hasHint {
+		t.Errorf("Hint = (%d, %q, %v), want (2, %q, true)", hintNumber, hintText, hasHint, want)
 	}
 
 	sectors := snap.Sectors()
@@ -71,27 +65,29 @@ func TestLiteLoadAndSnapshot(t *testing.T) {
 
 	main := sectors[0]
 	if main.Name != "Основные коды" || len(main.Codes) != 3 {
-		t.Fatalf("main sector = %+v", main)
+		t.Fatalf("main sector = %+v, want \"Основные коды\" with 3 codes", main)
 	}
 	// Lite hazards keep the colon part; only null becomes N.
 	if main.Codes[0].Hazard != "1" || main.Codes[1].Hazard != "2" || !main.Codes[1].Entered || main.Codes[2].Hazard != "N" {
-		t.Errorf("main codes = %+v", main.Codes)
+		t.Errorf("main codes = %+v, want hazards 1, 2 (entered) and N", main.Codes)
 	}
 
 	bonus := sectors[1]
 	if bonus.Name != "Бонусные коды" || len(bonus.Codes) != 2 {
-		t.Fatalf("bonus sector = %+v", bonus)
+		t.Fatalf("bonus sector = %+v, want \"Бонусные коды\" with 2 codes", bonus)
 	}
 	// The nonstandard sector lists hazards in parentheses.
 	if bonus.Codes[0].Hazard != "1.1" || bonus.Codes[1].Hazard != "2" {
-		t.Errorf("bonus codes = %+v", bonus.Codes)
+		t.Errorf("bonus codes = %+v, want hazards 1.1 and 2", bonus.Codes)
 	}
 	if bonus.Codes[0].Number != 1 || bonus.Codes[1].Number != 2 {
-		t.Errorf("bonus numbering = %+v", bonus.Codes)
+		t.Errorf("bonus numbering = %+v, want the codes numbered 1 and 2", bonus.Codes)
 	}
 }
 
-// The fixtures below are the spoiler markup of a real lite page.
+// The spoiler markup of a real lite page: attribute values are unquoted
+// (class=spoiler, class=title), and the open block carries a raw newline that
+// must survive conversion.
 const (
 	liteOpenSpoiler = `<!--levelTextBegin--><p>Задание</p><div class=spoiler><strong>Примечания к заданию</strong>: ` +
 		`<!--taskNotes--><p>ФО: слово</p><!--taskNotesEnd--></div><br/><!--levelTextEnd-->` +
@@ -103,7 +99,39 @@ const (
 		`<form  method=post data-ajax='false'><input type=hidden name=action value=spoilerCode>` +
 		`<input type=text size=30 placeholder='код спойлера' id=spoilerCode name=spoilerCode>` +
 		`<input id=spoilerCodeBtn type=submit value='показать спойлер'></form></p><!--bonusCodeCount 1-->`
+	// One spoiler already open and one still closed on the same page: the open
+	// block carries no number, so numbering comes from the order on the page.
+	liteMixedSpoilers = `<!--levelTextEnd-->` +
+		`<div style='font-size:120%;'><div class=spoiler><div class=title>Спойлер</div><p>первый</p></div></div>` +
+		`<p>В этом задании есть спойлер № 2. Чтобы увидеть его введите специальный код.<form></form></p>` +
+		`<!--bonusCodeCount 1-->`
+
+	// A level with no spoiler at all: the area between the markers is empty.
+	liteNoSpoilers = `<!--levelTextEnd--><!--bonusCodeCount 1--><!--mainCodeCount 6-->`
 )
+
+// TestHintReportsAbsence pins the bool that replaced the 0/"" sentinel: every
+// engine has to say "no hint" distinctly from "hint number 0".
+func TestHintReportsAbsence(t *testing.T) {
+	tests := []struct {
+		name string
+		snap Snapshot
+	}{
+		{name: "lite page without hint markers", snap: &liteSnapshot{data: liteNoSpoilers}},
+		{name: "classic between levels", snap: &classicSnapshot{}},
+		{name: "classic level with empty hints", snap: &classicSnapshot{level: map[string]any{"hint1": "", "hint2": ""}}},
+		{name: "prequel, which has no hints at all", snap: &prequelSnapshot{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			number, text, ok := tt.snap.Hint()
+			if number != 0 || text != "" || ok {
+				t.Errorf("Hint() = (%d, %q, %v), want (0, \"\", false)", number, text, ok)
+			}
+		})
+	}
+}
 
 func TestLiteSpoilerOpen(t *testing.T) {
 	snap := &liteSnapshot{link: "https://lite.dzzzr.ru/e-burg/go/", data: liteOpenSpoiler}
@@ -116,17 +144,17 @@ func TestLiteSpoilerOpen(t *testing.T) {
 		t.Errorf("spoiler = %+v, want open number 1", spoilers[0])
 	}
 	if !strings.Contains(spoilers[0].Text, "55.058638, 82.974920") {
-		t.Errorf("text lost the coordinates: %q", spoilers[0].Text)
+		t.Errorf("spoiler text = %q, want the coordinates kept", spoilers[0].Text)
 	}
 	if !strings.Contains(spoilers[0].Text, "x.png") {
-		t.Errorf("text lost the image: %q", spoilers[0].Text)
+		t.Errorf("spoiler text = %q, want the image link kept", spoilers[0].Text)
 	}
 	// The notes carry their own spoiler class inside the level text.
 	if strings.Contains(spoilers[0].Text, "Примечания") {
-		t.Errorf("task notes leaked into the spoiler: %q", spoilers[0].Text)
+		t.Errorf("spoiler text = %q, want the task notes left out", spoilers[0].Text)
 	}
 	if strings.Contains(spoilers[0].Text, "Спойлер") {
-		t.Errorf("title leaked into the text: %q", spoilers[0].Text)
+		t.Errorf("spoiler text = %q, want the title left out", spoilers[0].Text)
 	}
 }
 
@@ -143,26 +171,20 @@ func TestLiteSpoilerClosed(t *testing.T) {
 }
 
 func TestLiteSpoilersMixed(t *testing.T) {
-	data := `<!--levelTextEnd-->` +
-		`<div style='font-size:120%;'><div class=spoiler><div class=title>Спойлер</div><p>первый</p></div></div>` +
-		`<p>В этом задании есть спойлер № 2. Чтобы увидеть его введите специальный код.<form></form></p>` +
-		`<!--bonusCodeCount 1-->`
-
-	spoilers := (&liteSnapshot{link: "https://lite.dzzzr.ru/e-burg/go/", data: data}).Spoilers()
+	spoilers := (&liteSnapshot{link: "https://lite.dzzzr.ru/e-burg/go/", data: liteMixedSpoilers}).Spoilers()
 	if len(spoilers) != 2 {
 		t.Fatalf("spoilers = %+v, want 2", spoilers)
 	}
 	if !spoilers[0].Open || spoilers[0].Number != 1 || spoilers[0].Text != "первый" {
-		t.Errorf("first = %+v", spoilers[0])
+		t.Errorf("first spoiler = %+v, want open number 1 reading \"первый\"", spoilers[0])
 	}
 	if spoilers[1].Open || spoilers[1].Number != 2 {
-		t.Errorf("second = %+v", spoilers[1])
+		t.Errorf("second spoiler = %+v, want closed number 2", spoilers[1])
 	}
 }
 
 func TestLiteWithoutSpoilers(t *testing.T) {
-	data := `<!--levelTextEnd--><!--bonusCodeCount 1--><!--mainCodeCount 6-->`
-	if spoilers := (&liteSnapshot{data: data}).Spoilers(); len(spoilers) != 0 {
+	if spoilers := (&liteSnapshot{data: liteNoSpoilers}).Spoilers(); len(spoilers) != 0 {
 		t.Errorf("spoilers = %+v, want none", spoilers)
 	}
 }
@@ -173,7 +195,8 @@ func TestLiteEnterCodeMultipart(t *testing.T) {
 			t.Errorf("content type = %q, want multipart", ct)
 		}
 		if err := r.ParseMultipartForm(1 << 20); err != nil {
-			t.Fatalf("parse multipart: %v", err)
+			t.Errorf("ParseMultipartForm = %v, want no error", err)
+			return
 		}
 		if got := r.FormValue("cod"); got != "\xe4\xf01" {
 			t.Errorf("cod = %q, want windows-1251 bytes", got)
@@ -193,7 +216,8 @@ func TestLiteEnterCodeMultipart(t *testing.T) {
 func TestLiteEnterSpoilerCode(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseMultipartForm(1 << 20); err != nil {
-			t.Fatalf("parse multipart: %v", err)
+			t.Errorf("ParseMultipartForm = %v, want no error", err)
+			return
 		}
 
 		// The spoiler form differs from the level one by these two fields.
@@ -204,7 +228,7 @@ func TestLiteEnterSpoilerCode(t *testing.T) {
 			t.Errorf("spoilerCode = %q, want windows-1251 bytes", got)
 		}
 		if got := r.FormValue("cod"); got != "" {
-			t.Errorf("the level field was sent too: %q", got)
+			t.Errorf("level field = %q, want it absent from a spoiler submission", got)
 		}
 
 		w.Header().Set("Location", "?err=41")

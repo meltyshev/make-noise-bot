@@ -37,16 +37,16 @@ func TestStripBotMention(t *testing.T) {
 	a := &App{me: &models.User{Username: "MakeNoiseBot"}}
 
 	if got := a.stripBotMention("morse@MakeNoiseBot"); got != "morse" {
-		t.Errorf("own mention: %q", got)
+		t.Errorf("stripBotMention(\"morse@MakeNoiseBot\") = %q, want \"morse\"", got)
 	}
 	if got := a.stripBotMention("morse@makenoisebot"); got != "morse" {
-		t.Errorf("case-insensitive mention: %q", got)
+		t.Errorf("stripBotMention(\"morse@makenoisebot\") = %q, want \"morse\"", got)
 	}
 	if got := a.stripBotMention("morse@OtherBot"); got != "morse@OtherBot" {
-		t.Errorf("other bot's command must stay unknown: %q", got)
+		t.Errorf("stripBotMention(\"morse@OtherBot\") = %q, want it unchanged", got)
 	}
 	if got := a.stripBotMention("morse"); got != "morse" {
-		t.Errorf("plain name: %q", got)
+		t.Errorf("stripBotMention(\"morse\") = %q, want \"morse\"", got)
 	}
 }
 
@@ -122,7 +122,7 @@ func TestParseCoordinates(t *testing.T) {
 func TestJoinLimited(t *testing.T) {
 	short := []string{"кот", "ток"}
 	if got := joinLimited(short); got != "кот, ток" {
-		t.Errorf("short join = %q", got)
+		t.Errorf("joinLimited(short) = %q, want \"кот, ток\"", got)
 	}
 
 	long := make([]string, 0, 2000)
@@ -131,9 +131,9 @@ func TestJoinLimited(t *testing.T) {
 	}
 	got := joinLimited(long)
 	if len(got) > tgsend.Limit+len("...") {
-		t.Errorf("joined length %d exceeds the telegram limit", len(got))
+		t.Errorf("joinLimited(2000 words) = %d bytes, want at most %d", len(got), tgsend.Limit+len("..."))
 	}
 	if !strings.HasSuffix(got, "...") {
-		t.Error("truncated join must end with an ellipsis")
+		t.Errorf("joinLimited(2000 words) = %q, want it to end with an ellipsis", got[max(0, len(got)-20):])
 	}
 }

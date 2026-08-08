@@ -27,7 +27,7 @@ func TestAnagramsYoNormalization(t *testing.T) {
 	}
 	withE, _ := Anagrams("елка")
 	if !slices.Equal(withYo, withE) {
-		t.Errorf("ё/е results differ: %v vs %v", withYo, withE)
+		t.Errorf("anagrams with ё = %v, want the same as with е %v", withYo, withE)
 	}
 }
 
@@ -64,7 +64,7 @@ func TestMask(t *testing.T) {
 	}
 	for _, match := range matches {
 		if len([]rune(match)) != 3 {
-			t.Errorf("к-т matched %q with wrong length", match)
+			t.Errorf("mask \"к-т\" matched %q, want a 3-letter word", match)
 		}
 	}
 }
@@ -85,6 +85,6 @@ func TestMaskNoMatches(t *testing.T) {
 		t.Fatal("all-cyrillic mask must be accepted")
 	}
 	if len(matches) != 0 {
-		t.Errorf("ъъъъъъ matched %v", matches)
+		t.Errorf("mask \"ъъъъъъ\" matched %v, want no words", matches)
 	}
 }

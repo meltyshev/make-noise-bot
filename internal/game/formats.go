@@ -5,12 +5,10 @@ import (
 	"unicode"
 )
 
-// PrepareCode normalizes a chat message into an engine code. A leading "!"
-// or "." forces the rest through untouched. Otherwise the message's
-// non-digit characters must equal one of the format variants; a non-first
-// variant is rewritten into the first one character by character ("др123"
-// with ["dr", "др"] becomes "dr123"). ok is false when the message is not
-// a code.
+// PrepareCode normalizes a chat message into an engine code. A leading "!" or
+// "." forces the rest through untouched; otherwise the non-digit characters
+// must equal one of the format variants, and a non-first variant is rewritten
+// into the first ("др123" with ["dr", "др"] becomes "dr123").
 func PrepareCode(message string, formats [][]string) (code string, ok bool) {
 	code = strings.ToLower(message)
 

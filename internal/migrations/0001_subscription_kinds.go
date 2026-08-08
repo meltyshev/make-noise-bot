@@ -1,9 +1,9 @@
 package migrations
 
-// Subscribers used to be a plain list of chat ids where the first one also
-// received the level text and notes. They become per-chat subscriptions with
-// the same effective behaviour: the first chat keeps everything, the rest
-// keep notifications only.
+// init registers migration 1. Subscribers used to be a plain list of chat
+// ids where the first one also received the level text and notes. They become
+// per-chat subscriptions with the same effective behaviour: the first chat
+// keeps everything, the rest keep notifications only.
 func init() {
 	register(1, "subscription kinds", func(state map[string]any) error {
 		for _, key := range []string{"game_config", "game"} {
@@ -12,11 +12,13 @@ func init() {
 				continue
 			}
 
+			// The delete stays below the shape check: a "subscribers" value
+			// this migration cannot read is left for a human to look at.
 			ids, ok := owner["subscribers"].([]any)
-			delete(owner, "subscribers")
 			if !ok {
 				continue
 			}
+			delete(owner, "subscribers")
 
 			subscriptions := []any{}
 			for i, rawID := range ids {

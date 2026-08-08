@@ -20,6 +20,9 @@ import (
 )
 
 const (
+	// requestTimeout bounds how long one updater tick can block: ticks never
+	// overlap, so a request without a deadline would stall the broadcast loop
+	// for as long as the engine stays silent.
 	requestTimeout = 22 * time.Second
 	userAgent      = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36"
 )
@@ -55,12 +58,16 @@ type Snapshot interface {
 	Progress() string  // "" when unavailable
 	// Question carries the task with the engine's notes about it.
 	Question() string
-	Sectors() []Sector        // nil when unavailable
-	Hint() (int, string)      // 0, "" when there is no hint
+	Sectors() []Sector // nil when unavailable
+	// Hint returns the latest hint and false when the level has none.
+	Hint() (int, string, bool)
 	Spoilers() []Spoiler      // nil when unsupported or no level
 	TimeOnLevel() (int, bool) // seconds, false when the engine hides it
 }
 
+// Engine is one game variant behind a single shape. Every implementation
+// lives in this package and is picked by New from the stored engine name;
+// they look alike on purpose and are deliberately not merged.
 type Engine interface {
 	Name() string
 	Link() string

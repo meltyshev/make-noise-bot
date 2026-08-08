@@ -7,10 +7,10 @@ func TestDiff(t *testing.T) {
 		t.Errorf("diff = %v, want [1 3]", got)
 	}
 	if got := diff(nil, []int{1}); got != nil {
-		t.Errorf("diff of nil = %v", got)
+		t.Errorf("diff(nil, x) = %v, want none", got)
 	}
 	if got := diff([]int{1}, nil); len(got) != 1 {
-		t.Errorf("diff against nil = %v", got)
+		t.Errorf("diff(x, nil) = %v, want every element", got)
 	}
 }
 

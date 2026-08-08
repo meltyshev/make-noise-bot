@@ -1,8 +1,9 @@
 # Architecture
 
 One process, two loops. The Telegram loop reacts to what people type; the
-updater loop polls the game engine and pushes what changed. They share one
-`store.Store` and never talk to each other directly.
+updater loop polls the game engine and pushes what changed. They share the
+`store.Store`, the bot's Telegram client, its `game.Env` and its error
+reporter, but neither drives the other's dispatch.
 
 ```
 main.go
@@ -75,23 +76,28 @@ Four exist: DozorClassic, DozorLite and a prequel of each. `Engine.Load`
 returns a `Snapshot`, which is a read-only view of the level: number, question,
 progress, sectors, hint, spoilers, time on level.
 
-Sessions expire mid-game. Classic and its prequel detect it (an HTML login page
-where JSON was expected), re-login, retry once, and hand the new session back
-through `Env.OnSessionUpdate` so the bot can persist it.
+Sessions expire mid-game. Classic notices on both paths - an HTML login page
+where the JSON was expected - and the prequels notice only when a code POST
+answers with something other than the usual 302. All three re-login, retry
+once, and hand the new session back through `Env.OnSessionUpdate` so the bot
+can persist it. DozorLite has no session to renew: it authenticates with a
+pincode in the URL of every request.
 
 Everything the engines produce is HTML written by game organizers, which means
 it is frequently invalid. `internal/htmltext` converts it to the small tag set
 Telegram accepts, balances tags, turns coordinates into map links, and splits
-long messages without breaking markup. `internal/tgsend` sends the result and
-falls back to plain text if Telegram still refuses it.
+long messages without breaking markup. `internal/tgsend` sends the result; if
+Telegram still refuses the markup it resends the part as an escaped code block,
+and falls back to plain text only if that is rejected too.
 
 ## State
 
 `store.Data` holds managers, chats and permissions, the map service, user
-names, the game config, the running game and the rating. `store.View` and
-`store.Update` take a callback that runs under the mutex; `Update` persists on
-every change through `internal/jsonfile`, which writes a temp file and renames
-it over `state.json` so a crash mid-write cannot truncate the state.
+names, leave mode, the game config, the running game and the rating.
+`store.View` and `store.Update` take a callback that runs under the mutex;
+`Update` persists on every change through `internal/jsonfile`, which writes a
+temp file and renames it over `state.json` so a crash mid-write cannot
+truncate the state.
 
 Getters return copies, so a caller cannot reach into stored state by accident.
 
@@ -103,7 +109,14 @@ migration runs.
 
 ## Secrets
 
-The bot token and the game password are registered with `internal/secret` at
-startup. A wrapping `slog.Handler` redacts them from every log record, and
-transport errors have their URL stripped before they are logged or sent to the
-admin, because Telegram puts the token in the request URL.
+Both credentials end up in a request URL: Telegram carries the token as a path
+segment (`/bot<token>/getMe`), and the classic engine's login API takes the
+game password as a query parameter. So both are registered with
+`internal/secret` - the token when the config loads, the password when a
+session is obtained - and a wrapping `slog.Handler` redacts every registered
+value from every log record.
+
+Registration alone is not enough, because `secret.Register` ignores values too
+short to redact safely. Both places that put one of these two credentials in a
+URL therefore also run their transport errors through `secret.StripURL`, which
+keeps the operation and the cause and drops the URL.

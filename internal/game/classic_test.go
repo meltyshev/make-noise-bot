@@ -3,9 +3,10 @@ package game
 import (
 	"net/http"
 	"net/http/httptest"
-	"net/url"
+	"strings"
 	"testing"
 
+	"github.com/meltyshev/make-noise-bot/internal/secret"
 	"github.com/meltyshev/make-noise-bot/internal/store"
 )
 
@@ -34,12 +35,12 @@ const classicPayload = `jQuery163({"level": {` +
 func TestClassicLoadAndSnapshot(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/e-burg/go/" || r.URL.Query().Get("api") != "true" {
-			t.Errorf("unexpected request: %s %s", r.Method, r.URL)
+			t.Errorf("request = %s %s, want a GET on the classic API", r.Method, r.URL)
 			http.NotFound(w, r)
 			return
 		}
 		if r.URL.Query().Get("s") != "sess-1" {
-			t.Errorf("missing session, got query %q", r.URL.RawQuery)
+			t.Errorf("query = %q, want it to carry the session", r.URL.RawQuery)
 		}
 		w.Write([]byte(classicPayload))
 	}))
@@ -65,9 +66,9 @@ func TestClassicLoadAndSnapshot(t *testing.T) {
 
 	// The doubled backslashes are gone, so the quotes reach Telegram as
 	// quotes rather than as \" .
-	hintNumber, hintText := snap.Hint()
-	if want := "От каждой &#34;птицы&#34; нужен хвост"; hintNumber != 1 || hintText != want {
-		t.Errorf("Hint = (%d, %q), want (1, %q)", hintNumber, hintText, want)
+	hintNumber, hintText, hasHint := snap.Hint()
+	if want := "От каждой &#34;птицы&#34; нужен хвост"; hintNumber != 1 || hintText != want || !hasHint {
+		t.Errorf("Hint = (%d, %q, %v), want (1, %q, true)", hintNumber, hintText, hasHint, want)
 	}
 
 	spoilers := snap.Spoilers()
@@ -87,36 +88,69 @@ func TestClassicLoadAndSnapshot(t *testing.T) {
 	}
 	main := sectors[0]
 	if main.Name != "Основные коды" {
-		t.Errorf("main sector name = %q", main.Name)
+		t.Errorf("main sector name = %q, want \"Основные коды\"", main.Name)
 	}
 	if len(main.Codes) != 3 {
 		t.Fatalf("main codes = %d, want 3", len(main.Codes))
 	}
 	if main.Codes[0].Hazard != "1.2" || main.Codes[0].Entered {
-		t.Errorf("code 1 = %+v", main.Codes[0])
+		t.Errorf("code 1 = %+v, want hazard 1.2 not entered", main.Codes[0])
 	}
 	if main.Codes[1].Hazard != "1.3" || !main.Codes[1].Entered {
-		t.Errorf("code 2 = %+v", main.Codes[1])
+		t.Errorf("code 2 = %+v, want hazard 1.3 entered", main.Codes[1])
 	}
 	if main.Codes[2].Hazard != "N" || main.Codes[2].Entered {
-		t.Errorf("code 3 = %+v", main.Codes[2])
+		t.Errorf("code 3 = %+v, want the null hazard as N", main.Codes[2])
 	}
 	if bonus := sectors[1]; bonus.Name != "Бонусные коды" || len(bonus.Codes) != 1 || bonus.Codes[0].Number != 1 {
-		t.Errorf("bonus sector = %+v", bonus)
+		t.Errorf("bonus sector = %+v, want the bonus codes numbered from 1", bonus)
+	}
+}
+
+// TestClassicLoginErrorHidesThePassword pins that a transport failure on the
+// login API never carries the credential: the password travels in the query
+// string, and the error reaches a log line and the admin DM.
+func TestClassicLoginErrorHidesThePassword(t *testing.T) {
+	const password = "correct-horse-battery"
+
+	// A server that is already gone, so Do fails with a *url.Error naming the
+	// whole request URL.
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	env := testEnv(srv)
+	srv.Close()
+
+	_, err := obtainClassicSession(t.Context(), env, "e-burg", "team", password)
+	if err == nil {
+		t.Fatal("obtainClassicSession = nil error, want a transport failure")
+	}
+	if strings.Contains(err.Error(), password) {
+		t.Errorf("obtainClassicSession err = %q, want the password gone", err)
+	}
+	// StripURL cleaned that error, so redaction is pinned separately: the
+	// password must have been registered on the way out, or a leak by any
+	// other route would survive.
+	leaked := "login failed for " + password
+	if got := secret.Redact(leaked); strings.Contains(got, password) {
+		t.Errorf("Redact(%q) = %q, want the password registered and masked", leaked, got)
 	}
 }
 
 func TestClassicEnterCode(t *testing.T) {
-	var gotBody url.Values
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			t.Errorf("method = %s", r.Method)
+			t.Errorf("method = %s, want POST", r.Method)
 		}
 		if cookie := r.Header.Get("Cookie"); cookie != "dozorSiteSession=sess-1" {
-			t.Errorf("cookie = %q", cookie)
+			t.Errorf("cookie = %q, want the stored session", cookie)
 		}
 		r.ParseForm()
-		gotBody = r.PostForm
+		// "др12" must reach the engine as windows-1251 bytes.
+		if got := r.PostForm.Get("cod"); got != "\xe4\xf012" {
+			t.Errorf("cod = %q, want windows-1251 bytes", got)
+		}
+		if got := r.PostForm.Get("action"); got != "entcod" {
+			t.Errorf("action = %q, want entcod", got)
+		}
 		w.Header().Set("Location", "/e-burg/go/?err=8")
 		w.WriteHeader(http.StatusFound)
 	}))
@@ -124,22 +158,14 @@ func TestClassicEnterCode(t *testing.T) {
 
 	engine := newClassic(classicGame(), testEnv(srv))
 	result := engine.EnterCode(t.Context(), "др12", nil)
-
 	if !result.Accepted || result.StatusCode != 8 {
 		t.Fatalf("result = %+v, want accepted status 8", result)
 	}
-	// "др12" must reach the engine as windows-1251 bytes.
-	if got := gotBody.Get("cod"); got != "\xe4\xf012" {
-		t.Errorf("cod = %q, want windows-1251 bytes", got)
-	}
-	if gotBody.Get("action") != "entcod" {
-		t.Errorf("action = %q", gotBody.Get("action"))
-	}
 }
 
-// TestClassicSpoilerCodeUsesTheSpoilerForm: the page's spoiler form posts
-// action=spoilerCode, and only that form answers with the err=55/56 spoiler
-// statuses.
+// TestClassicSpoilerCodeUsesTheSpoilerForm pins that the code goes to the
+// page's own spoiler form, the only one that answers with the err=55/56
+// spoiler statuses.
 func TestClassicSpoilerCodeUsesTheSpoilerForm(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
@@ -168,7 +194,7 @@ func TestClassicEnterCodePinnedLevel(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 		if r.PostForm.Get("level") != "7" || r.PostForm.Get("skvoz") != "1" {
-			t.Errorf("pinned fields missing: %v", r.PostForm)
+			t.Errorf("form = %v, want level and skvoz set for a pinned code", r.PostForm)
 		}
 		w.Header().Set("Location", "?err=11")
 		w.WriteHeader(http.StatusFound)
@@ -183,14 +209,14 @@ func TestClassicEnterCodePinnedLevel(t *testing.T) {
 	}
 }
 
-// TestClassicReloginOnDeadSession: the first load hits an HTML login page,
-// the engine re-logs in, persists the new session and retries.
+// TestClassicReloginOnDeadSession checks that a first load hitting an HTML
+// login page makes the engine re-log in, persist the new session and retry.
 func TestClassicReloginOnDeadSession(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/e-burg/API/login.php":
 			if r.URL.Query().Get("login") != "team" || r.URL.Query().Get("password") != "secret" {
-				t.Errorf("login params = %q", r.URL.RawQuery)
+				t.Errorf("login query = %q, want the login and password of the game", r.URL.RawQuery)
 			}
 			w.Write([]byte(`{"code": "2", "userToken": "sess-2"}`))
 		case "/e-burg/go/":
@@ -225,7 +251,7 @@ func TestClassicReloginOnDeadSession(t *testing.T) {
 func TestClassicStart(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if user, pass, ok := r.BasicAuth(); !ok || user != "" || pass != "" {
-			t.Errorf("expected empty basic auth, got %q %q", user, pass)
+			t.Errorf("basic auth = (%q, %q), want both empty", user, pass)
 		}
 		w.Write([]byte(`{"code": 2, "userToken": "fresh"}`))
 	}))
@@ -240,9 +266,9 @@ func TestClassicStart(t *testing.T) {
 		t.Fatalf("Start: %v", err)
 	}
 	if g.Session != "fresh" || g.Engine != NameClassic || g.City != "e-burg" {
-		t.Errorf("game = %+v", g)
+		t.Errorf("Start() = %+v, want the classic game with its new session", g)
 	}
 	if len(g.CodeFormats) != 1 || g.CodeFormats[0][0] != "dr" {
-		t.Errorf("code formats not copied: %v", g.CodeFormats)
+		t.Errorf("Start().CodeFormats = %v, want a copy of the config formats", g.CodeFormats)
 	}
 }

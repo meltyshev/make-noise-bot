@@ -1,14 +1,9 @@
 package htmltext
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
-
-func testLink(lat, lon float64) string {
-	return fmt.Sprintf("https://maps.example/%.4f/%.4f", lat, lon)
-}
 
 func TestLinkCoordinates(t *testing.T) {
 	tests := []struct {
@@ -103,7 +98,7 @@ func TestLinksSkipCoordinateLinks(t *testing.T) {
 
 	own := Links(converted)
 	if len(own) != 1 || own[0] != "https://example.com/pic.png" {
-		t.Fatalf("own links = %q", own)
+		t.Fatalf("Links = %q, want the page's own links only", own)
 	}
 
 	// After linking, the map URL is in the text but was never in own.
@@ -113,7 +108,7 @@ func TestLinksSkipCoordinateLinks(t *testing.T) {
 	}
 	for _, link := range own {
 		if strings.Contains(link, "maps.example") {
-			t.Errorf("a coordinate link leaked into own links: %q", link)
+			t.Errorf("Links = %q, want no coordinate link", link)
 		}
 	}
 }
@@ -133,7 +128,7 @@ func TestLinksHandleEntities(t *testing.T) {
 func TestLinkCoordinatesWithoutLinker(t *testing.T) {
 	text := "56.838011, 60.597465"
 	if got := LinkCoordinates(text, nil); got != text {
-		t.Errorf("nil linker changed the text: %q", got)
+		t.Errorf("LinkCoordinates(text, nil) = %q, want it unchanged", got)
 	}
 }
 
@@ -142,7 +137,7 @@ func TestLinkedTextStaysBalanced(t *testing.T) {
 	linked := LinkCoordinates(text, testLink)
 
 	if strings.Count(linked, "<a ") != strings.Count(linked, "</a>") {
-		t.Errorf("unbalanced links: %q", linked)
+		t.Errorf("LinkCoordinates = %q, want balanced anchors", linked)
 	}
 	for _, part := range Split(linked, 60) {
 		balanced(t, part)

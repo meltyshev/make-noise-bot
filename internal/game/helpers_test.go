@@ -22,3 +22,18 @@ func classicGame() store.Game {
 		Session:  "sess-1",
 	}
 }
+
+func liteGame() store.Game {
+	return store.Game{Engine: NameLite, City: "e-burg", Pincode: "pin-1"}
+}
+
+func prequelGame(name string) store.Game {
+	return store.Game{
+		Engine:  name,
+		City:    "e-burg",
+		Login:   "team",
+		Session: "sess-1",
+		GameID:  "42",
+		League:  "1",
+	}
+}

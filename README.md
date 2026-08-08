@@ -7,7 +7,7 @@ an allowed chat is treated as a potential game code and submitted to the
 engine automatically.
 
 One static binary, no database, no webserver. Config and state are two small
-JSON files next to the executable.
+JSON files in the working directory; `--config` moves them somewhere else.
 
 > The previous Python/Heroku implementation lives in the
 > [`v1`](https://github.com/meltyshev/make-noise-bot/tree/v1) branch.
@@ -23,6 +23,8 @@ JSON files next to the executable.
    ```
    $ ./make-noise-bot
    Файл конфигурации не найден - настроим бота.
+   Создайте бота у @BotFather в Telegram и получите токен.
+
    Вставьте токен бота: <paste>
    Готово, это @your_bot. Конфигурация сохранена в config.json.
    Теперь отправьте боту /start - первый написавший станет админом.
@@ -37,7 +39,13 @@ That's it: the bot is polling. No ports, no domains, no databases.
 ```sh
 ./make-noise-bot --token 123456:ABC-DEF          # creates config.json
 ./make-noise-bot --token 123456:ABC-DEF --admin-id 111111
+./make-noise-bot --config /etc/make-noise-bot.json
+./make-noise-bot --version
 ```
+
+`--config` picks the config file (default `config.json` in the working
+directory; `state.json` is written beside it) and `--debug` turns on the
+raw-payload dumps described below.
 
 ### Docker
 
@@ -57,9 +65,9 @@ docker compose up -d
    (short notices that something happened). The same list is in
    `/gameconfig`.
 4. Play. Type codes right into the chat - `др12`, `dr12`, `--12` are
-   normalized by the configured formats; `!код` submits as-is. `?` prints the
-   sector board and progress, `$код` answers a pinned (сквозной) level and
-   `&код` opens a spoiler.
+   normalized by the configured formats; `!код` and `.код` submit as typed.
+   `?` prints the sector board and progress, `$код` answers a pinned
+   (сквозной) level and `&код` opens a spoiler.
 
 Chats must be allowed first: `/permission` sends the admin a request with
 Allow/Forbid buttons (manual `/allow <id>` works too). Managers and
@@ -80,13 +88,17 @@ Admin: `/permission`, `/allow`, `/forbid`, `/chats`, `/drop`, `/write`,
 `/config` (managers, map service, leave mode), `/chatid`, `/userid`,
 `/avatar`.
 
+`/start` claims the admin role on first run and greets everyone after that.
+`/top`, `/maxwell` and `/romka` are easter eggs; the last two pick a random
+phrase.
+
 Coordinates in level texts, notes and hints become links to the map service
 picked in `/config` (Яндекс.Карты, Google Maps, 2ГИС or OpenStreetMap), so
 they open the map app on a phone.
 
 ## Configuration
 
-`config.json` (created by the setup wizard, permissions `0600`):
+`config.json` (the wizard writes the first four keys, permissions `0600`):
 
 ```json
 {
@@ -123,7 +135,8 @@ itself are in [CLAUDE.md](CLAUDE.md) and [docs/](docs).
 - The engine scrapers in `internal/game` encode years of reverse engineering:
   windows-1251 encodings, malformed-JSON fixups and status-code tables. Treat
   changes there with respect and keep the tests green.
-- The bot auto-renews the engine session mid-game if it expires.
+- The bot auto-renews the engine session mid-game if it expires. DozorLite
+  needs no renewal: it sends its pincode with every request.
 - Embedded assets and their licenses are listed in [NOTICE](NOTICE).
 
 ## License

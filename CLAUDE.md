@@ -1,7 +1,8 @@
 # make-noise-bot
 
 A Telegram bot for Dozor city quest games. One static binary, long polling, no
-database: `config.json` and `state.json` sit next to the executable.
+database: `config.json` and `state.json` sit in the working directory (or
+wherever `--config` points).
 
 ```sh
 go build .              # binary for your machine
@@ -33,9 +34,10 @@ Install the linter with
 | `internal/words`, `internal/avatar` | embedded dictionaries, PNG avatars |
 
 Dependencies point one way and the graph is acyclic. `bot` and `updater` sit on
-top, `game` and `tgsend` in the middle, `store`, `geo`, `texts`, `words`,
-`avatar`, `secret`, `jsonfile` at the bottom. Keep it that way; if a new import
-would create a cycle, the design is wrong, not the cycle.
+top, `game`, `tgsend`, `htmltext` and `config` in the middle, `store`, `geo`,
+`texts`, `words`, `avatar`, `secret`, `jsonfile` and `migrations` at the bottom.
+Keep it that way; if a new import would create a cycle, the design is wrong, not
+the cycle.
 
 ## Hard rules
 
@@ -44,8 +46,9 @@ would create a cycle, the design is wrong, not the cycle.
 - Every user-facing string lives in `internal/texts`. The one exception is the
   per-engine status tables in `internal/game`, which stay next to the status
   codes they map.
-- Do not mention the old Python implementation. It lives on the `v1` branch and
-  is not context for anything here.
+- Do not carry the old Python implementation into design decisions here. It
+  lives on the `v1` branch and is not context for anything in this tree. The
+  one pointer to it, in README.md, is for users and stays.
 - No new dependencies without a reason that survives a day of thought. Four
   direct deps today.
 - Commits and pushes are the maintainer's, never the agent's.
@@ -85,7 +88,7 @@ Never shadow a builtin - `new`, `max`, `close` and `len` are real functions.
 
 ## Errors
 
-Wrap with `%w` at the end: `fmt.Errorf("read state: %w", err)`. Lowercase, no
+Wrap with `%w` at the end: `fmt.Errorf("open state: %w", err)`. Lowercase, no
 trailing punctuation, no "failed" suffix. `errors.New` for static messages.
 `error` is the last return value, always. Handle an error once: either return
 it or log it, not both.
@@ -124,8 +127,9 @@ returned from the store are copies, so mutating them is safe and pointless.
   everywhere, including engine and code-format pickers.
 - Config menus are private-chat only.
 - Messages go out as HTML through `tgsend`, which splits at 4000 UTF-16 units,
-  balances tags across parts and falls back to plain text if Telegram rejects
-  the markup. Never call `SendMessage` with HTML directly.
+  balances tags across parts and, if Telegram still rejects the markup, resends
+  it as an escaped code block and only then as plain text. Never call
+  `SendMessage` with HTML directly.
 - Chat message prefixes: `!` and `.` send a code as typed, `?` prints the board,
   `$` answers a pinned level, `&` opens a spoiler.
 
@@ -133,19 +137,24 @@ returned from the store are copies, so mutating them is safe and pointless.
 
 `internal/game` is reverse-engineered from live sites and encodes years of
 knowledge: windows-1251 bodies, JSONP wrappers with invalid JSON, HTML marker
-comments, `err=N` redirect status tables. The three engines look alike on
-purpose and are not to be merged.
+comments, `err=N` redirect status tables. The three engine implementations -
+classic, lite and the one shared by both prequels - look alike on purpose and
+are not to be merged.
 
 Never change parsing without a fixture test built from a real page. Fixtures are
 inline consts in the test file with one line saying what is broken about them.
 
 ## State and migrations
 
-`state.json` is written atomically (temp file, rename). Any change to the shape
-of `store.Data` needs a migration in `internal/migrations`: a new
-`000N_name.go`, registered in `init()`, operating on `map[string]any` rather
-than the current structs, plus a bump of the current schema version. Migrations
-must be idempotent and must never lose a field they do not understand.
+`state.json` and `config.json` are both written atomically through
+`internal/jsonfile` (temp file, rename, mode 0600). Renaming, removing or
+reinterpreting a field of `store.Data` needs a migration in
+`internal/migrations`: a new `000N_name.go`, registered in `init()`, operating
+on `map[string]any` rather than the current structs, plus a bump of the current
+schema version. A purely additive `omitempty` field needs none, because an
+absent key already unmarshals to the zero value the code expects. Migrations
+must be idempotent on their own - the version gate in `Apply` is not the thing
+that makes them safe - and must never lose a field they do not understand.
 
 ## Tests
 

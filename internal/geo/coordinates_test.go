@@ -9,10 +9,10 @@ func near(a, b float64) bool { return math.Abs(a-b) < 0.0001 }
 
 func TestFindDecimal(t *testing.T) {
 	tests := []struct {
-		name string
-		text string
-		lat  float64
-		lon  float64
+		name    string
+		text    string
+		wantLat float64
+		wantLon float64
 	}{
 		{"comma and space", "Точка 56.838011, 60.597465 рядом", 56.838011, 60.597465},
 		{"comma only", "56.838011,60.597465", 56.838011, 60.597465},
@@ -31,8 +31,8 @@ func TestFindDecimal(t *testing.T) {
 			if len(matches) != 1 {
 				t.Fatalf("Find(%q) = %d matches, want 1", tt.text, len(matches))
 			}
-			if !near(matches[0].Lat, tt.lat) || !near(matches[0].Lon, tt.lon) {
-				t.Errorf("got (%v, %v), want (%v, %v)", matches[0].Lat, matches[0].Lon, tt.lat, tt.lon)
+			if !near(matches[0].Lat, tt.wantLat) || !near(matches[0].Lon, tt.wantLon) {
+				t.Errorf("Find(%q) = (%v, %v), want (%v, %v)", tt.text, matches[0].Lat, matches[0].Lon, tt.wantLat, tt.wantLon)
 			}
 		})
 	}
@@ -40,10 +40,10 @@ func TestFindDecimal(t *testing.T) {
 
 func TestFindSexagesimal(t *testing.T) {
 	tests := []struct {
-		name string
-		text string
-		lat  float64
-		lon  float64
+		name    string
+		text    string
+		wantLat float64
+		wantLon float64
 	}{
 		{"degrees minutes seconds", `56°50'16.8"N 60°35'50.9"E`, 56.8380, 60.5975},
 		{"hemispheres in front", `N 56°50'16.8" E 60°35'50.9"`, 56.8380, 60.5975},
@@ -57,8 +57,8 @@ func TestFindSexagesimal(t *testing.T) {
 			if len(matches) != 1 {
 				t.Fatalf("Find(%q) = %d matches, want 1", tt.text, len(matches))
 			}
-			if math.Abs(matches[0].Lat-tt.lat) > 0.001 || math.Abs(matches[0].Lon-tt.lon) > 0.001 {
-				t.Errorf("got (%v, %v), want about (%v, %v)", matches[0].Lat, matches[0].Lon, tt.lat, tt.lon)
+			if math.Abs(matches[0].Lat-tt.wantLat) > 0.001 || math.Abs(matches[0].Lon-tt.wantLon) > 0.001 {
+				t.Errorf("Find(%q) = (%v, %v), want about (%v, %v)", tt.text, matches[0].Lat, matches[0].Lon, tt.wantLat, tt.wantLon)
 			}
 		})
 	}
@@ -94,10 +94,10 @@ func TestFindSeveralAndOffsets(t *testing.T) {
 		t.Error("matches are not in order")
 	}
 	if got := text[matches[0].Start:matches[0].End]; got != "56.838011, 60.597465" {
-		t.Errorf("first span = %q", got)
+		t.Errorf("first span = %q, want the first coordinate pair", got)
 	}
 	if got := text[matches[1].Start:matches[1].End]; got != "55.755814, 37.617635" {
-		t.Errorf("second span = %q", got)
+		t.Errorf("second span = %q, want the second coordinate pair", got)
 	}
 }
 

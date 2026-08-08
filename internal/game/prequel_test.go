@@ -8,18 +8,10 @@ import (
 	"github.com/meltyshev/make-noise-bot/internal/store"
 )
 
+// prequelPayload is the prequel code board as served: an unquoted id
+// attribute, a hazard wrapped in <span>, and a literal null where a hazard
+// should be.
 const prequelPayload = `<html><strong id=orang>Код сложности:<br>Игра: 1.1, <span>2</span>, null<br>Бонус: 3.3<br></strong></html>`
-
-func prequelGame(name string) store.Game {
-	return store.Game{
-		Engine:  name,
-		City:    "e-burg",
-		Login:   "team",
-		Session: "sess-1",
-		GameID:  "42",
-		League:  "1",
-	}
-}
 
 func TestPrequelSectors(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -44,17 +36,17 @@ func TestPrequelSectors(t *testing.T) {
 	}
 	// Prequel sector names stay raw: no trimming, no capitalization.
 	if sectors[0].Name != "Игра" || sectors[1].Name != "Бонус" {
-		t.Errorf("sector names = %q, %q", sectors[0].Name, sectors[1].Name)
+		t.Errorf("sector names = (%q, %q), want the game and bonus sectors", sectors[0].Name, sectors[1].Name)
 	}
 	// One shared counter across all prequel sectors.
 	if sectors[0].Codes[2].Number != 3 || sectors[1].Codes[0].Number != 4 {
-		t.Errorf("numbering = %+v %+v", sectors[0].Codes, sectors[1].Codes)
+		t.Errorf("numbering = %+v %+v, want one counter shared across the sectors", sectors[0].Codes, sectors[1].Codes)
 	}
 	if sectors[0].Codes[1].Hazard != "2" || !sectors[0].Codes[1].Entered {
-		t.Errorf("entered code = %+v", sectors[0].Codes[1])
+		t.Errorf("entered code = %+v, want the <span> hazard marked entered", sectors[0].Codes[1])
 	}
 	if sectors[0].Codes[2].Hazard != "N" {
-		t.Errorf("null hazard = %+v", sectors[0].Codes[2])
+		t.Errorf("null hazard = %+v, want it rendered as N", sectors[0].Codes[2])
 	}
 }
 
@@ -62,7 +54,7 @@ func TestPrequelEnterCode(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 		if r.PostForm.Get("action") != "prequel_code_new" || r.PostForm.Get("league") != "1" || r.PostForm.Get("game") != "42" {
-			t.Errorf("form = %v", r.PostForm)
+			t.Errorf("form = %v, want the prequel game id and league", r.PostForm)
 		}
 		w.Header().Set("Location", "?err=54")
 		w.WriteHeader(http.StatusFound)
@@ -81,12 +73,12 @@ func TestPrequelLinks(t *testing.T) {
 
 	classic := newPrequel(prequelGame(NameClassicPrequel), env)
 	if classic.Link() != "https://classic.dzzzr.ru/e-burg/?section=anons&league=1" {
-		t.Errorf("classic prequel link = %q", classic.Link())
+		t.Errorf("classic prequel link = %q, want the anons section on the classic host", classic.Link())
 	}
 
 	lite := newPrequel(prequelGame(NameLitePrequel), env)
 	if lite.Link() != "https://lite.dzzzr.ru/e-burg/?league=1" {
-		t.Errorf("lite prequel link = %q", lite.Link())
+		t.Errorf("lite prequel link = %q, want the league page on the lite host", lite.Link())
 	}
 }
 

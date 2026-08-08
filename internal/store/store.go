@@ -61,6 +61,8 @@ func (s *Store) View(f func(d *Data)) {
 	f(s.data)
 }
 
+// Update runs f under the lock and persists the result before returning; f
+// must not retain references either.
 func (s *Store) Update(f func(d *Data)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -128,6 +130,8 @@ func (s *Store) MapService() string {
 	return service
 }
 
+// UpdateGame edits the running game under the lock. It is a no-op, not an
+// error, when no game is active, so callers racing a /game stop do not fail.
 func (s *Store) UpdateGame(f func(g *Game)) error {
 	return s.Update(func(d *Data) {
 		if d.Game != nil {
@@ -160,13 +164,15 @@ func (s *Store) Rating() []Player {
 	return players
 }
 
-// List fields come out non-nil: a nil slice marshals as JSON null.
+// copyGame detaches every slice and pointer from the stored game, and returns
+// list fields non-nil because a nil slice marshals as JSON null.
 func copyGame(g *Game) Game {
 	out := *g
 	out.CodeFormats = copyFormats(g.CodeFormats)
 	out.Subscriptions = g.Subscriptions.Clone()
 	out.SolvedSpoilers = append([]int{}, g.SolvedSpoilers...)
 	out.LevelNumber = copyInt(g.LevelNumber)
+	out.LevelTime = copyInt(g.LevelTime)
 	out.HintNumber = copyInt(g.HintNumber)
 	out.PinnedLevel = copyInt(g.PinnedLevel)
 	return out

@@ -45,7 +45,8 @@ func TestApplyMissingFileStampsCurrent(t *testing.T) {
 	}
 }
 
-// A state from the plain-list era upgrades all the way to the current shape.
+// TestApplyLegacySubscribers upgrades a state from the plain-list era all the
+// way to the current shape.
 func TestApplyLegacySubscribers(t *testing.T) {
 	path := writeState(t, `{
 	  "game_config": {"city": "e-burg", "subscribers": [-100, -200, 7]},
@@ -153,6 +154,84 @@ func TestApplyIsIdempotent(t *testing.T) {
 	afterRaw, _ := json.Marshal(after)
 	if !bytes.Equal(beforeRaw, afterRaw) {
 		t.Errorf("state changed on rerun:\n%s\n%s", beforeRaw, afterRaw)
+	}
+}
+
+// TestMigrationBodiesAreIdempotent replays every migration over state that has
+// already been through the whole chain. Apply's version gate hides a migration
+// that is not idempotent on its own, but a state.json with a missing or zeroed
+// schema_version - hand-edited, or restored from a pre-versioning backup -
+// counts as version 0 and runs all of them again.
+func TestMigrationBodiesAreIdempotent(t *testing.T) {
+	path := writeState(t, `{
+	  "game_config": {"city": "e-burg", "subscribers": [-100, -200, 7]},
+	  "game": {"engine": "DozorClassic", "subscribers": [-100, -200]}
+	}`)
+	if _, err := Apply(path); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	migrated := read(t, path)
+
+	for _, m := range all {
+		t.Run(m.name, func(t *testing.T) {
+			state := read(t, path)
+			if err := m.apply(state); err != nil {
+				t.Fatalf("%s replayed: %v", m.name, err)
+			}
+
+			want, _ := json.Marshal(migrated)
+			got, _ := json.Marshal(state)
+			if !bytes.Equal(got, want) {
+				t.Errorf("%s replayed = %s, want the state unchanged %s", m.name, got, want)
+			}
+		})
+	}
+}
+
+// TestApplyUnstampedV1State is the case the version gate cannot help with: a
+// state already in the v1 shape whose schema_version is missing, so every
+// migration runs over it. 0001 finds no legacy list and leaves it alone, and
+// 0002 still has to convert it rather than mistake it for its own output.
+func TestApplyUnstampedV1State(t *testing.T) {
+	path := writeState(t, `{
+	  "game_config": {"subscriptions": [
+	    {"chat_id": -100, "level_up": true, "hints": true, "spoilers": true, "question": true, "notes": true},
+	    {"chat_id": -200, "level_up": true, "hints": true, "spoilers": true}
+	  ]}
+	}`)
+
+	if _, err := Apply(path); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	subs := read(t, path)["game_config"].(map[string]any)["subscriptions"].([]any)
+	if len(subs) != 2 {
+		t.Fatalf("subscriptions = %d, want 2", len(subs))
+	}
+	// The chat that wanted the level texts keeps them; the other does not.
+	for i, want := range []bool{false, true} {
+		if got := subs[i].(map[string]any)["events_only"] == true; got != want {
+			t.Errorf("subscription %d events_only = %v, want %v", i, got, want)
+		}
+	}
+}
+
+// TestApplyKeepsUnknownSubscribersShape pins that a migration never drops a
+// field whose shape it does not recognize.
+func TestApplyKeepsUnknownSubscribersShape(t *testing.T) {
+	path := writeState(t, `{"game_config": {"subscribers": {"-100": "everything"}}}`)
+
+	if _, err := Apply(path); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	owner := read(t, path)["game_config"].(map[string]any)
+	got, ok := owner["subscribers"]
+	if !ok {
+		t.Fatalf("subscribers = missing, want the unrecognized value kept")
+	}
+	if _, isObject := got.(map[string]any); !isObject {
+		t.Errorf("subscribers = %v, want the object untouched", got)
 	}
 }
 

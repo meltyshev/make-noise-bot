@@ -41,7 +41,13 @@ func cmdGame() *Command {
 				c.app.reportError(err)
 				return
 			}
-			c.Reply(game.New(*newGame, c.app.env).Link())
+			// newGame is the stored game now, so the link comes from a copy
+			// rather than from a pointer the updater also writes to.
+			g, ok := c.app.store.Game()
+			if !ok {
+				return
+			}
+			c.Reply(game.New(g, c.app.env).Link())
 		},
 	}
 }
@@ -82,6 +88,7 @@ func cmdQuestion() *Command {
 
 			snap, err := engine.Load(c.ctx)
 			if err != nil {
+				c.app.log.Warn("engine load failed", "error", err)
 				c.Reply(texts.CannotLoadEngine)
 				return
 			}

@@ -20,6 +20,7 @@ import (
 	"github.com/meltyshev/make-noise-bot/internal/game"
 	"github.com/meltyshev/make-noise-bot/internal/secret"
 	"github.com/meltyshev/make-noise-bot/internal/store"
+	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
 
 // Command is one bot command. Init receives the command with arguments;
@@ -61,7 +62,7 @@ func New(cfg *config.Config, st *store.Store, logger *slog.Logger) (*App, error)
 	a.env = game.DefaultEnv()
 	a.env.OnSessionUpdate = func(session string) {
 		if err := st.UpdateGame(func(g *store.Game) { g.Session = session }); err != nil {
-			a.log.Error("persist session failed", "error", err)
+			a.reportError(fmt.Errorf("persist session: %w", err))
 		}
 		a.log.Info("engine session refreshed")
 	}
@@ -75,7 +76,7 @@ func New(cfg *config.Config, st *store.Store, logger *slog.Logger) (*App, error)
 		// Handle updates strictly in order: codes must not race each other.
 		tgbot.WithNotAsyncHandlers(),
 		tgbot.WithErrorsHandler(func(err error) {
-			a.log.Error("telegram client failed", "error", err)
+			a.log.Warn("telegram client failed", "error", err)
 		}),
 	)
 	if err != nil {
@@ -108,7 +109,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	a.log.Info("bot started", "username", me.Username)
 	if a.adminID() == 0 {
-		a.log.Info("no admin configured, send /start to the bot to become admin")
+		a.log.Info("no admin configured")
 	}
 
 	a.tg.Start(ctx)
@@ -178,14 +179,18 @@ func (a *App) reportError(err error) {
 		return
 	}
 
+	// maxDMLen leaves room under Telegram's 4096-unit limit for the prefix and
+	// the ellipsis, which a stack trace easily overruns.
+	const maxDMLen = 3500
+
 	text := secret.Redact(err.Error())
-	if len(text) > 3500 {
-		text = text[:3500] + "..."
+	if len(text) > maxDMLen {
+		text = text[:maxDMLen] + "..."
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	if _, sendErr := a.tg.SendMessage(ctx, &tgbot.SendMessageParams{ChatID: adminID, Text: "⚠️ " + text}); sendErr != nil {
-		a.log.Error("error DM failed", "error", sendErr)
+	if _, sendErr := a.tg.SendMessage(ctx, &tgbot.SendMessageParams{ChatID: adminID, Text: texts.ErrorPrefix + text}); sendErr != nil {
+		a.log.Warn("send to admin failed", "error", sendErr)
 	}
 }
 

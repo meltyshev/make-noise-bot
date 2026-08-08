@@ -1,8 +1,10 @@
 package migrations
 
-// Subscriptions used to carry a flag per update kind. They become a single
-// mode: a chat that wanted the level texts keeps everything, the rest keep
-// the short notices.
+import "slices"
+
+// init registers migration 2. Subscriptions used to carry a flag per update
+// kind. They become a single mode: a chat that wanted the level texts keeps
+// everything, the rest keep the short notices.
 func init() {
 	register(2, "subscription modes", func(state map[string]any) error {
 		for _, key := range []string{"game_config", "game"} {
@@ -22,8 +24,19 @@ func init() {
 					continue
 				}
 
+				kinds := []string{"level_up", "hints", "spoilers", "question", "notes"}
+				// A subscription carrying no kind at all has already been
+				// converted; without this the replay reads every missing
+				// "question" as false and downgrades full subscribers.
+				if !slices.ContainsFunc(kinds, func(kind string) bool {
+					_, ok := sub[kind]
+					return ok
+				}) {
+					continue
+				}
+
 				wantedTexts := sub["question"] == true || sub["notes"] == true
-				for _, kind := range []string{"level_up", "hints", "spoilers", "question", "notes"} {
+				for _, kind := range kinds {
 					delete(sub, kind)
 				}
 				if !wantedTexts {

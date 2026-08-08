@@ -121,9 +121,9 @@ func (u *Updater) tick(ctx context.Context) {
 		u.announce(ctx, texts.LevelGone, texts.LevelGone, buttonRow(texts.ButtonStopGame, texts.CallbackStopGame))
 	}
 
-	hintNumber, hintText := snap.Hint()
+	hintNumber, hintText, hasHint := snap.Hint()
 	var hintPtr *int
-	if hintNumber != 0 {
+	if hasHint {
 		hintPtr = &hintNumber
 	}
 	if !intPtrEqual(hintPtr, currentHint) {

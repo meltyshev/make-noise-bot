@@ -1,5 +1,5 @@
-// Package jsonfile reads and writes the small JSON files the bot keeps next
-// to its binary.
+// Package jsonfile reads and writes the small JSON files the bot keeps in its
+// working directory.
 package jsonfile
 
 import (
@@ -22,8 +22,10 @@ func Read(path string, v any) error {
 	return nil
 }
 
-// Write marshals v indented and replaces path atomically: a crash mid-write
-// leaves the previous file untouched rather than a truncated one.
+// Write marshals v indented and replaces path atomically with mode 0600: a
+// crash mid-write leaves the previous file untouched rather than a truncated
+// one. Both files the bot keeps hold credentials, so neither is world
+// readable.
 func Write(path string, v any) error {
 	raw, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
@@ -31,7 +33,9 @@ func Write(path string, v any) error {
 	}
 	raw = append(raw, '\n')
 
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".state-*.json")
+	// The pattern follows the target, so a stray temp file says which write
+	// died. os.CreateTemp already creates it 0600.
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+"-*")
 	if err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}

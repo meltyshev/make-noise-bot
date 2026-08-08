@@ -15,6 +15,7 @@ import (
 	"github.com/meltyshev/make-noise-bot/internal/migrations"
 	"github.com/meltyshev/make-noise-bot/internal/secret"
 	"github.com/meltyshev/make-noise-bot/internal/store"
+	"github.com/meltyshev/make-noise-bot/internal/texts"
 	"github.com/meltyshev/make-noise-bot/internal/updater"
 )
 
@@ -101,7 +102,7 @@ func loadConfig(ctx context.Context, path, token string) (*config.Config, error)
 	}
 	cfg, err = config.Wizard(ctx, path, os.Stdin, os.Stdout)
 	if err != nil {
-		return nil, fmt.Errorf("%w - либо запустите с флагом --token", err)
+		return nil, fmt.Errorf("%w - %s", err, texts.WizardUseToken)
 	}
 	return cfg, nil
 }

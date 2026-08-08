@@ -69,7 +69,7 @@ func cmdMorse() *Command {
 
 const lowercaseEN = "abcdefghijklmnopqrstuvwxyz"
 
-// ё included, at position 7.
+// lowercaseRU includes ё, at position 7.
 var lowercaseRU = []rune("абвгдеёжзийклмнопрстуфхцчшщъыьэюя")
 
 func cmdNumbersToLetters() *Command {

@@ -20,6 +20,22 @@ import (
 
 const NameLite = "DozorLite"
 
+var (
+	liteLevelNumberRe = regexp.MustCompile(`<!--levelNumberBegin-->(\d+)<!--levelNumberEnd-->`)
+	liteQuestionRe    = regexp.MustCompile(`(?s)<!--levelTextBegin-->(.*?)<!--levelTextEnd-->`)
+	liteSectorsRe     = regexp.MustCompile(`<strong>Коды сложности</strong>(.*?)</div>`)
+	liteProgressRe    = regexp.MustCompile(`\(Всего - (\d+) ?(, для прохождения достаточно любых (\d+) ?)?, принято - (\d+)\)`)
+	liteTimeRe        = regexp.MustCompile(`<!--timeOnLevelBegin (\d+) timeOnLevelEnd-->`)
+	liteHintsRe       = regexp.MustCompile(`(?s)<!--LevelClue(\d)Text-->(.*?)<!--LevelClue\dTextEnd-->`)
+
+	// Spoilers live between the level text and the code counts, either as an
+	// open block or as a line offering the form to unlock them.
+	liteSpoilerAreaRe   = regexp.MustCompile(`(?s)<!--levelTextEnd-->(.*?)(?:<!--bonusCodeCount|<!--mainCodeCount|<!--difficultyCods|<div class='dcodes'|<p>Введите код)`)
+	liteSpoilerOpenRe   = regexp.MustCompile(`<div class=['"]?spoiler['"]?[^>]*>`)
+	liteSpoilerTitleRe  = regexp.MustCompile(`(?is)<div class=['"]?title['"]?[^>]*>\s*Спойлер\s*(?:№\s*)?(\d*)[^<]*</div>`)
+	liteSpoilerClosedRe = regexp.MustCompile(`(?i)спойлер\s*№\s*(\d+)`)
+)
+
 var liteStatuses = map[int]string{
 	1:  "Игра не началась.",
 	2:  "Неверный PIN.",
@@ -67,22 +83,6 @@ var liteStatuses = map[int]string{
 }
 
 var liteAccepted = map[int]bool{8: true, 9: true, 17: true, 24: true, 25: true, 40: true}
-
-var (
-	liteLevelNumberRe = regexp.MustCompile(`<!--levelNumberBegin-->(\d+)<!--levelNumberEnd-->`)
-	liteQuestionRe    = regexp.MustCompile(`(?s)<!--levelTextBegin-->(.*?)<!--levelTextEnd-->`)
-	liteSectorsRe     = regexp.MustCompile(`<strong>Коды сложности</strong>(.*?)</div>`)
-	liteProgressRe    = regexp.MustCompile(`\(Всего - (\d+) ?(, для прохождения достаточно любых (\d+) ?)?, принято - (\d+)\)`)
-	liteTimeRe        = regexp.MustCompile(`<!--timeOnLevelBegin (\d+) timeOnLevelEnd-->`)
-	liteHintsRe       = regexp.MustCompile(`(?s)<!--LevelClue(\d)Text-->(.*?)<!--LevelClue\dTextEnd-->`)
-
-	// Spoilers live between the level text and the code counts, either as an
-	// open block or as a line offering the form to unlock them.
-	liteSpoilerAreaRe   = regexp.MustCompile(`(?s)<!--levelTextEnd-->(.*?)(?:<!--bonusCodeCount|<!--mainCodeCount|<!--difficultyCods|<div class='dcodes'|<p>Введите код)`)
-	liteSpoilerOpenRe   = regexp.MustCompile(`<div class=['"]?spoiler['"]?[^>]*>`)
-	liteSpoilerTitleRe  = regexp.MustCompile(`(?is)<div class=['"]?title['"]?[^>]*>\s*Спойлер\s*(?:№\s*)?(\d*)[^<]*</div>`)
-	liteSpoilerClosedRe = regexp.MustCompile(`(?i)спойлер\s*№\s*(\d+)`)
-)
 
 func startLite(cfg store.GameConfig) *store.Game {
 	game := newGameFromConfig(cfg)
@@ -308,17 +308,17 @@ func (s *liteSnapshot) Sectors() []Sector {
 	return append(mainSectors, bonusSectors...)
 }
 
-func (s *liteSnapshot) Hint() (int, string) {
+func (s *liteSnapshot) Hint() (int, string, bool) {
 	matches := liteHintsRe.FindAllStringSubmatch(s.data, -1)
 	if len(matches) == 0 {
-		return 0, ""
+		return 0, "", false
 	}
 	last := matches[len(matches)-1]
 	number, err := strconv.Atoi(last[1])
 	if err != nil {
-		return 0, ""
+		return 0, "", false
 	}
-	return number, htmltext.Convert(last[2], s.link)
+	return number, htmltext.Convert(last[2], s.link), true
 }
 
 // Spoilers reads both forms and numbers them by their order on the page,

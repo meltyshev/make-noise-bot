@@ -13,11 +13,15 @@ import (
 	"unicode"
 
 	"github.com/meltyshev/make-noise-bot/internal/htmltext"
+	"github.com/meltyshev/make-noise-bot/internal/secret"
 	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
 
 const NameClassic = "DozorClassic"
+
+// fixResponseRe strips leading garbage before the first "{" or "[".
+var fixResponseRe = regexp.MustCompile(`^[^\{\[]*`)
 
 var classicStatuses = map[int]string{
 	1:  "Игра не началась.",
@@ -78,12 +82,13 @@ var classicStatuses = map[int]string{
 
 var classicAccepted = map[int]bool{8: true, 9: true, 16: true, 36: true, 55: true}
 
-// fixResponseRe strips leading garbage before the first "{" or "[".
-var fixResponseRe = regexp.MustCompile(`^[^\{\[]*`)
-
 // obtainClassicSession is also used by the prequel engines. The API wants an
 // empty basic auth header.
 func obtainClassicSession(ctx context.Context, env *Env, city, login, password string) (string, error) {
+	// The password travels in the query string, so it has to be registered
+	// before the first request that can fail with the URL in the error.
+	secret.Register(password)
+
 	loginURL := fmt.Sprintf("%s/%s/API/login.php?%s", env.ClassicBaseURL, city, url.Values{
 		"login":    {login},
 		"password": {password},
@@ -91,14 +96,14 @@ func obtainClassicSession(ctx context.Context, env *Env, city, login, password s
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, loginURL, nil)
 	if err != nil {
-		return "", err
+		return "", secret.StripURL(err)
 	}
 	req.SetBasicAuth("", "")
 	req.Header.Set("User-Agent", userAgent)
 
 	resp, err := env.HTTPFollow.Do(req)
 	if err != nil {
-		return "", err
+		return "", secret.StripURL(err)
 	}
 	raw, err := readBody(resp)
 	if err != nil {
@@ -432,17 +437,17 @@ func (s *classicSnapshot) Sectors() []Sector {
 	return append(mainSectors, bonusSectors...)
 }
 
-func (s *classicSnapshot) Hint() (int, string) {
+func (s *classicSnapshot) Hint() (int, string, bool) {
 	if s.level == nil {
-		return 0, ""
+		return 0, "", false
 	}
 	for i := 2; i >= 1; i-- {
 		hint := s.level[fmt.Sprintf("hint%d", i)]
 		if truthy(hint) {
-			return i, htmltext.Convert(asString(hint), s.link)
+			return i, htmltext.Convert(asString(hint), s.link), true
 		}
 	}
-	return 0, ""
+	return 0, "", false
 }
 
 func (s *classicSnapshot) Spoilers() []Spoiler {

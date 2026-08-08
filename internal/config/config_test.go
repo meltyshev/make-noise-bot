@@ -1,11 +1,8 @@
 package config
 
 import (
-	"errors"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -27,34 +24,10 @@ func TestLoadAppliesDefaults(t *testing.T) {
 	}
 }
 
-func TestStripURLDropsToken(t *testing.T) {
-	const token = "123456789:AAHsecretvaluehere"
-	err := &url.Error{
-		Op:  "Get",
-		URL: "https://api.telegram.org/bot" + token + "/getMe",
-		Err: errors.New("context deadline exceeded"),
-	}
-
-	got := stripURL(err).Error()
-	if strings.Contains(got, token) {
-		t.Errorf("token survived: %q", got)
-	}
-	if !strings.Contains(got, "context deadline exceeded") {
-		t.Errorf("cause lost: %q", got)
-	}
-}
-
-func TestStripURLKeepsOtherErrors(t *testing.T) {
-	err := errors.New("Unauthorized")
-	if got := stripURL(err); !errors.Is(got, err) {
-		t.Errorf("plain error changed: %v", got)
-	}
-}
-
 func TestLoadMissingIsNotExist(t *testing.T) {
 	_, err := Load(filepath.Join(t.TempDir(), "nope.json"))
 	if !os.IsNotExist(err) {
-		t.Errorf("want IsNotExist, got %v", err)
+		t.Errorf("Load(missing) err = %v, want IsNotExist", err)
 	}
 }
 

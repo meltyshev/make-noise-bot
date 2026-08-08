@@ -62,7 +62,8 @@ func (c *Ctx) EnsurePrivate() bool {
 	return false
 }
 
-// In group chats replies quote the triggering message.
+// replyParams quotes the triggering message in group chats, and returns nil
+// everywhere else.
 func (c *Ctx) replyParams() *models.ReplyParameters {
 	if !c.isGroup() {
 		return nil
@@ -70,9 +71,11 @@ func (c *Ctx) replyParams() *models.ReplyParameters {
 	return &models.ReplyParameters{MessageID: c.msg.ID}
 }
 
+// send delivers one reply. A failure is that chat's problem, not the
+// maintainer's, so it stays at the level every single-chat send uses.
 func (c *Ctx) send(params *tgbot.SendMessageParams) {
 	if _, err := c.app.tg.SendMessage(c.ctx, params); err != nil {
-		c.app.reportError(fmt.Errorf("send message: %w", err))
+		c.app.log.Warn("send message failed", "chat_id", c.ChatID(), "error", err)
 	}
 }
 
@@ -92,7 +95,7 @@ func (c *Ctx) ReplyHTML(text string) {
 		Reply:   c.replyParams(),
 	})
 	if err != nil {
-		c.app.reportError(fmt.Errorf("send html: %w", err))
+		c.app.log.Warn("send message failed", "chat_id", c.ChatID(), "error", err)
 	}
 }
 
@@ -136,7 +139,7 @@ func (c *Ctx) ReplyPhoto(png []byte, caption string) {
 		ReplyParameters: c.replyParams(),
 	})
 	if err != nil {
-		c.app.reportError(fmt.Errorf("send photo: %w", err))
+		c.app.log.Warn("send photo failed", "chat_id", c.ChatID(), "error", err)
 	}
 }
 
