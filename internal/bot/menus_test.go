@@ -150,7 +150,7 @@ func TestRenderGameConfigMenu(t *testing.T) {
 	d := testData()
 	_, keyboard := renderGameConfigMenu(d)
 
-	if b := findButton(t, keyboard, "Движок: DozorClassic"); b.CallbackData != "gc:engine" {
+	if b := findButton(t, keyboard, "Движок: Dozor Classic"); b.CallbackData != "gc:engine" {
 		t.Errorf("engine callback = %q, want gc:engine", b.CallbackData)
 	}
 	if b := findButton(t, keyboard, "Город: e-burg"); b.CallbackData != "gc:field:city" {
@@ -179,7 +179,7 @@ func TestRenderEngineChoice(t *testing.T) {
 	d.GameConfig.Engine = "DozorLite"
 
 	_, keyboard := renderEngineChoice(d)
-	if b := findButton(t, keyboard, mark(true, "DozorLite")); b.CallbackData != "gc:seteng:DozorLite" {
+	if b := findButton(t, keyboard, mark(true, texts.EngineLite)); b.CallbackData != "gc:seteng:DozorLite" {
 		t.Errorf("active engine callback = %q, want gc:seteng:DozorLite", b.CallbackData)
 	}
 	for _, button := range flatButtons(keyboard) {

@@ -56,7 +56,7 @@ docker compose up -d
 
 ## Playing a game
 
-1. `/gameconfig` - pick the engine (DozorClassic / DozorLite / prequels) and
+1. `/gameconfig` - pick the engine (Dozor Classic / Dozor Lite / prequels) and
    fill in the city, credentials and code formats.
 2. `/game` - start: the bot logs into the engine and answers with the game
    link. Run `/game` again after the finish to stop.

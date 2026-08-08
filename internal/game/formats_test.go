@@ -52,3 +52,34 @@ func TestIsMarkedCode(t *testing.T) {
 		}
 	}
 }
+
+// TestLabelIsDisplayOnly pins that every engine gets a readable label while
+// the stored name keeps its wire spelling, which callback data and state.json
+// both carry.
+func TestLabelIsDisplayOnly(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{name: NameClassic, want: "Dozor Classic"},
+		{name: NameLite, want: "Dozor Lite"},
+		{name: NameClassicPrequel, want: "Dozor Classic Prequel"},
+		{name: NameLitePrequel, want: "Dozor Lite Prequel"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Label(tt.name); got != tt.want {
+				t.Errorf("Label(%q) = %q, want %q", tt.name, got, tt.want)
+			}
+			if !IsKnownEngine(tt.name) {
+				t.Errorf("IsKnownEngine(%q) = false, want the stored name unchanged", tt.name)
+			}
+		})
+	}
+
+	// An unknown name is shown as it is stored rather than swallowed.
+	if got := Label("Nonsense"); got != "Nonsense" {
+		t.Errorf("Label(\"Nonsense\") = %q, want it echoed back", got)
+	}
+}

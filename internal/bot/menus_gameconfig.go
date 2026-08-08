@@ -32,7 +32,7 @@ func renderGameConfigMenu(d *store.Data) (string, [][]models.InlineKeyboardButto
 	cfg := d.GameConfig
 
 	keyboard := [][]models.InlineKeyboardButton{
-		btnRow(btn(fmt.Sprintf(texts.GameConfigEngineFmt, cfg.Engine), "gc:engine")),
+		btnRow(btn(fmt.Sprintf(texts.GameConfigEngineFmt, game.Label(cfg.Engine)), "gc:engine")),
 		btnRow(btn(fmt.Sprintf(texts.GameConfigCityFmt, cfg.City), "gc:field:city")),
 		btnRow(btn(fmt.Sprintf(texts.GameConfigLoginFmt, cfg.Login), "gc:field:login")),
 		btnRow(btn(fmt.Sprintf(texts.GameConfigPasswordFmt, cfg.Password), "gc:field:password")),
@@ -70,7 +70,7 @@ func renderEngineChoice(d *store.Data) (string, [][]models.InlineKeyboardButton)
 	var keyboard [][]models.InlineKeyboardButton
 	for _, name := range game.Names {
 		keyboard = append(keyboard, btnRow(
-			btn(mark(d.GameConfig.Engine == name, name), "gc:seteng:"+name),
+			btn(mark(d.GameConfig.Engine == name, game.Label(name)), "gc:seteng:"+name),
 		))
 	}
 	keyboard = append(keyboard, btnRow(btn(texts.ButtonBack, "gc:menu")))

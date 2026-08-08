@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/meltyshev/make-noise-bot/internal/store"
+	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
 
 // Names is in game config menu order.
@@ -13,6 +14,24 @@ var Names = []string{NameClassic, NameLite, NameClassicPrequel, NameLitePrequel}
 
 func IsKnownEngine(name string) bool {
 	return slices.Contains(Names, name)
+}
+
+// Label is the engine name as the menus show it. The stored name is left
+// alone: callback data and state.json carry it, and renaming those would
+// break buttons in messages already sent.
+func Label(name string) string {
+	switch name {
+	case NameClassic:
+		return texts.EngineClassic
+	case NameLite:
+		return texts.EngineLite
+	case NameClassicPrequel:
+		return texts.EngineClassicPrequel
+	case NameLitePrequel:
+		return texts.EngineLitePrequel
+	default:
+		return name
+	}
 }
 
 func newGameFromConfig(cfg store.GameConfig) *store.Game {

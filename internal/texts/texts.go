@@ -160,6 +160,15 @@ const (
 	UnknownNameFmt            = "ID %d"
 )
 
+// Engine names as a person reads them. The stored name keeps its wire
+// spelling, which callback data and state.json both carry.
+const (
+	EngineClassic        = "Dozor Classic"
+	EngineLite           = "Dozor Lite"
+	EngineClassicPrequel = "Dozor Classic Prequel"
+	EngineLitePrequel    = "Dozor Lite Prequel"
+)
+
 // Game config menu.
 const (
 	GameConfigEngineFmt      = "Движок: %s"
