@@ -234,8 +234,6 @@ func (s *liteSnapshot) Question() string {
 	return htmltext.Convert(match[1], s.link)
 }
 
-func (s *liteSnapshot) Notes() string { return "" }
-
 func (s *liteSnapshot) Sectors() []Sector {
 	blockMatch := liteSectorsRe.FindStringSubmatch(s.data)
 	if blockMatch == nil {

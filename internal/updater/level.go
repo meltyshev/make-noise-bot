@@ -71,8 +71,6 @@ func levelTask(snap game.Snapshot) string {
 
 	digest := sha256.New()
 	io.WriteString(digest, snap.Question())
-	io.WriteString(digest, "\x00")
-	io.WriteString(digest, snap.Notes())
 	for _, sector := range snap.Sectors() {
 		io.WriteString(digest, "\x00"+sector.Name)
 		for _, code := range sector.Codes {

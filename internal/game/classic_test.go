@@ -72,11 +72,9 @@ func TestClassicLoadAndSnapshot(t *testing.T) {
 	if got, want := snap.Progress(), "2/5 1/2 0:15:00"; got != want {
 		t.Errorf("Progress = %q, want %q", got, want)
 	}
-	if got, want := snap.Question(), "<b>Вопрос</b>\nтут"; got != want {
+	// The location comment rides along with the task, labelled.
+	if got, want := snap.Question(), "<b>Вопрос</b>\nтут\n\n<b>Примечания:</b>\nКомментарий"; got != want {
 		t.Errorf("Question = %q, want %q", got, want)
-	}
-	if got, want := snap.Notes(), "Комментарий"; got != want {
-		t.Errorf("Notes = %q, want %q", got, want)
 	}
 
 	hintNumber, hintText := snap.Hint()

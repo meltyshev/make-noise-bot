@@ -11,7 +11,6 @@ func (a *App) registerCommands() {
 		cmdMask(),
 		cmdLink(),
 		cmdQuestion(),
-		cmdNotes(),
 		cmdRating(),
 		cmdClearRating(),
 		cmdTop(),

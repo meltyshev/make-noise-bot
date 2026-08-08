@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime/debug"
-	"strings"
 	"time"
 
 	tgbot "github.com/go-telegram/bot"
@@ -109,14 +108,13 @@ func (u *Updater) tick(ctx context.Context) {
 		currentHint = nil
 		currentSolved = nil
 
-		question, notes := snap.Question(), snap.Notes()
 		// A restriction outlives the level it was set on, so the new level
 		// carries the button to lift it.
 		var markup models.ReplyMarkup
 		if g.Restricted {
 			markup = buttonRow(texts.ButtonAllowCodes, texts.CallbackAllowCodes)
 		}
-		u.announce(ctx, levelMessage(question, notes), texts.LevelUp, markup)
+		u.announce(ctx, levelMessage(snap.Question()), texts.LevelUp, markup)
 	}
 
 	if gone {
@@ -188,15 +186,11 @@ func (u *Updater) announce(ctx context.Context, full, notice string, markup mode
 	}
 }
 
-func levelMessage(question, notes string) string {
-	parts := []string{texts.LevelUp}
-	if question != "" {
-		parts = append(parts, question)
+func levelMessage(question string) string {
+	if question == "" {
+		return texts.LevelUp
 	}
-	if notes != "" {
-		parts = append(parts, notes)
-	}
-	return strings.Join(parts, "\n\n")
+	return texts.LevelUp + "\n\n" + question
 }
 
 func buttonRow(label, data string) models.ReplyMarkup {

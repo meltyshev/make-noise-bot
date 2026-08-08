@@ -71,7 +71,7 @@ Utilities: `/morse`, `/anagram`, `/mask` (offline dictionaries built into the
 binary), `/intersection`, `/letterstonumbers`, `/numberstoletters`,
 `/coordinates`, `/help`, `/cancel`.
 
-Game: `/question`, `/notes`, `/link`, `/rating`, `/clearrating`,
+Game: `/question`, `/link`, `/rating`, `/clearrating`,
 `/restrict`, `/bruteforce`, `/pinlevel`, `/unpinlevel`, `/subscribe`,
 `/game`, `/gameconfig` (code formats are preset buttons there and apply to a
 running game immediately).

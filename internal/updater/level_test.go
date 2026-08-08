@@ -127,17 +127,14 @@ func TestLevelGone(t *testing.T) {
 	}
 }
 
-// The full message carries whatever the level has; events-only chats get
-// the shout instead, which announce() picks per chat.
+// The full message carries the task; events-only chats get the shout
+// instead, which announce() picks per chat.
 func TestLevelMessage(t *testing.T) {
-	if got := levelMessage("Найдите памятник", "Осторожно, собака"); got != "АП!\n\nНайдите памятник\n\nОсторожно, собака" {
-		t.Errorf("full = %q", got)
+	if got := levelMessage("Найдите памятник"); got != "АП!\n\nНайдите памятник" {
+		t.Errorf("with a task = %q", got)
 	}
-	if got := levelMessage("Найдите памятник", ""); got != "АП!\n\nНайдите памятник" {
-		t.Errorf("without notes = %q", got)
-	}
-	if got := levelMessage("", ""); got != "АП!" {
-		t.Errorf("without texts = %q, want the shout alone", got)
+	if got := levelMessage(""); got != "АП!" {
+		t.Errorf("without a task = %q, want the shout alone", got)
 	}
 }
 
@@ -157,14 +154,12 @@ func TestSameLevel(t *testing.T) {
 type fakeSnapshot struct {
 	number   *int
 	question string
-	notes    string
 	sectors  []game.Sector
 }
 
 func (s fakeSnapshot) LevelNumber() *int        { return s.number }
 func (s fakeSnapshot) Progress() string         { return "" }
 func (s fakeSnapshot) Question() string         { return s.question }
-func (s fakeSnapshot) Notes() string            { return s.notes }
 func (s fakeSnapshot) Sectors() []game.Sector   { return s.sectors }
 func (s fakeSnapshot) Hint() (int, string)      { return 0, "" }
 func (s fakeSnapshot) Spoilers() []game.Spoiler { return nil }

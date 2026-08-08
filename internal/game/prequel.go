@@ -167,7 +167,6 @@ func (s *prequelSnapshot) LevelNumber() *int        { return intPtr(0) }
 func (s *prequelSnapshot) TimeOnLevel() (int, bool) { return 0, false }
 func (s *prequelSnapshot) Progress() string         { return "" }
 func (s *prequelSnapshot) Question() string         { return "" }
-func (s *prequelSnapshot) Notes() string            { return "" }
 func (s *prequelSnapshot) Hint() (int, string)      { return 0, "" }
 func (s *prequelSnapshot) Spoilers() []Spoiler      { return nil }
 

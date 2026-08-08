@@ -51,10 +51,10 @@ type Spoiler struct {
 
 // Snapshot is one loaded view of the engine state.
 type Snapshot interface {
-	LevelNumber() *int        // nil when there is no level
-	Progress() string         // "" when unavailable
-	Question() string         // "" when unavailable
-	Notes() string            // "" when unavailable
+	LevelNumber() *int // nil when there is no level
+	Progress() string  // "" when unavailable
+	// Question carries the task with the engine's notes about it.
+	Question() string
 	Sectors() []Sector        // nil when unavailable
 	Hint() (int, string)      // 0, "" when there is no hint
 	Spoilers() []Spoiler      // nil when unsupported or no level

@@ -340,18 +340,24 @@ func parseClock(value string) (int, bool) {
 	return total, true
 }
 
+// Question appends the location comment, which the lite engine already keeps
+// inside the level text.
 func (s *classicSnapshot) Question() string {
 	if s.level == nil {
 		return ""
 	}
-	return htmltext.Convert(asString(s.level["question"]), s.link)
-}
 
-func (s *classicSnapshot) Notes() string {
-	if s.level == nil {
-		return ""
+	question := htmltext.Convert(asString(s.level["question"]), s.link)
+	notes := htmltext.Convert(asString(s.level["locationComment"]), s.link)
+	if notes == "" {
+		return question
 	}
-	return htmltext.Convert(asString(s.level["locationComment"]), s.link)
+
+	notes = "<b>" + texts.NotesHeader + "</b>\n" + notes
+	if question == "" {
+		return notes
+	}
+	return question + "\n\n" + notes
 }
 
 func (s *classicSnapshot) Sectors() []Sector {

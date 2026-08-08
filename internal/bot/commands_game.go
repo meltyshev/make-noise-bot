@@ -98,35 +98,6 @@ func cmdQuestion() *Command {
 	}
 }
 
-func cmdNotes() *Command {
-	return &Command{
-		Name:        "notes",
-		Description: texts.DescNotes,
-		Init: func(c *Ctx, _ string) {
-			if !c.EnsureAllowed("notes") {
-				return
-			}
-
-			engine := c.app.ClassicEngine()
-			if engine == nil {
-				c.Reply(texts.NoActiveGame)
-				return
-			}
-
-			snap, err := engine.Load(c.ctx)
-			if err != nil {
-				c.Reply(texts.CannotLoadEngine)
-				return
-			}
-			if notes := snap.Notes(); notes != "" {
-				c.ReplyHTML(notes)
-			} else {
-				c.Reply(texts.NotesNone)
-			}
-		},
-	}
-}
-
 func cmdLink() *Command {
 	return &Command{
 		Name:        "link",
