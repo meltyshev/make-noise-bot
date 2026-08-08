@@ -49,7 +49,7 @@ func askFlow(name, description, ask, required string, run func(c *Ctx, input str
 		Name:        name,
 		Description: description,
 		Init: func(c *Ctx, args string) {
-			if !c.EnsureAllowed(name) {
+			if !c.EnsureAllowed() {
 				return
 			}
 			if args != "" {

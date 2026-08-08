@@ -194,7 +194,7 @@ func (a *App) leaveChat(c *Ctx) {
 	if a.adminID() != 0 {
 		text := fmt.Sprintf(texts.LeftChatFmt, c.msg.Chat.Title, c.ChatID())
 		if _, err := a.tg.SendMessage(c.ctx, &tgbot.SendMessageParams{ChatID: a.adminID(), Text: text}); err != nil {
-			a.log.Error("send to admin failed", "error", err)
+			a.log.Warn("send to admin failed", "error", err)
 		}
 	}
 }

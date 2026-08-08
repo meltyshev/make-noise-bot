@@ -75,8 +75,8 @@ func TestIsNewLevel(t *testing.T) {
 		},
 		{
 			name:     "engine hides the timer",
-			previous: levelState{Number: intOf(5), Task: "aaa"},
-			current:  levelState{Number: intOf(6), Task: "bbb"},
+			previous: levelState{Number: new(5), Task: "aaa"},
+			current:  levelState{Number: new(6), Task: "bbb"},
 			want:     true,
 		},
 	}
@@ -92,22 +92,22 @@ func TestIsNewLevel(t *testing.T) {
 
 func TestTimerRestarted(t *testing.T) {
 	// A countdown ticking down must not look like a restart.
-	if timerRestarted(intOf(3600), intOf(3595)) {
+	if timerRestarted(new(3600), new(3595)) {
 		t.Error("a countdown tick counted as a restart")
 	}
-	if !timerRestarted(intOf(3600), intOf(5)) {
+	if !timerRestarted(new(3600), new(5)) {
 		t.Error("a timer falling back to zero is a restart")
 	}
-	if timerRestarted(intOf(300), intOf(400)) {
+	if timerRestarted(new(300), new(400)) {
 		t.Error("a growing timer is not a restart")
 	}
-	if timerRestarted(nil, intOf(5)) || timerRestarted(intOf(5), nil) {
+	if timerRestarted(nil, new(5)) || timerRestarted(new(5), nil) {
 		t.Error("an unknown timer cannot restart")
 	}
-	if !timerRestarted(intOf(130), intOf(120)) {
+	if !timerRestarted(new(130), new(120)) {
 		t.Error("a drop into the start window is a restart")
 	}
-	if timerRestarted(intOf(4000), intOf(3000)) {
+	if timerRestarted(new(4000), new(3000)) {
 		t.Error("a drop that stays far from the start is not a restart")
 	}
 }
@@ -131,7 +131,7 @@ func TestLevelGone(t *testing.T) {
 // instead, which announce() picks per chat.
 func TestLevelMessage(t *testing.T) {
 	if got := levelMessage("Найдите памятник"); got != "АП!\n\nНайдите памятник" {
-		t.Errorf("with a task = %q", got)
+		t.Errorf("levelMessage with a task = %q, want the shout and the task", got)
 	}
 	if got := levelMessage(""); got != "АП!" {
 		t.Errorf("without a task = %q, want the shout alone", got)
@@ -167,7 +167,7 @@ func (s fakeSnapshot) TimeOnLevel() (int, bool) { return 0, false }
 
 func TestLevelTaskIgnoresProgress(t *testing.T) {
 	level := fakeSnapshot{
-		number:   intOf(5),
+		number:   new(5),
 		question: "Найдите памятник",
 		sectors: []game.Sector{{
 			Name: "Основные коды",
@@ -216,5 +216,3 @@ func TestLevelTaskIgnoresProgress(t *testing.T) {
 		t.Errorf("fingerprint = %q, want short hex", got)
 	}
 }
-
-func intOf(value int) *int { return &value }

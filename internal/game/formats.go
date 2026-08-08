@@ -66,10 +66,10 @@ func IsMarkedCode(message string) bool {
 	return len(runes) > 1 && (runes[0] == '!' || runes[0] == '.')
 }
 
-func replaceFirstRune(s string, old, new rune) string {
+func replaceFirstRune(s string, old, replacement rune) string {
 	idx := strings.IndexRune(s, old)
 	if idx < 0 {
 		return s
 	}
-	return s[:idx] + string(new) + s[idx+len(string(old)):]
+	return s[:idx] + string(replacement) + s[idx+len(string(old)):]
 }

@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/meltyshev/make-noise-bot/internal/store"
 )
@@ -11,12 +12,7 @@ import (
 var Names = []string{NameClassic, NameLite, NameClassicPrequel, NameLitePrequel}
 
 func IsKnownEngine(name string) bool {
-	for _, known := range Names {
-		if known == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(Names, name)
 }
 
 func newGameFromConfig(cfg store.GameConfig) *store.Game {

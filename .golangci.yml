@@ -1,0 +1,123 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    # golangci-lint defaults, kept explicit.
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # Error handling.
+    - errorlint
+    - noctx
+
+    # Style rules the Go guides actually prescribe.
+    - revive
+    - predeclared
+    - unconvert
+    - usestdlibvars
+
+    # Bug classes for an HTTP client that talks to game engines.
+    - bodyclose
+    - copyloopvar
+    - gocritic
+
+    # Keeping the code current and readable.
+    - misspell
+    - modernize
+    - sloglint
+    - nolintlint
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+
+    govet:
+      enable-all: true
+      disable:
+        - shadow
+        - fieldalignment
+
+    gocritic:
+      enabled-tags: [diagnostic, performance]
+      disabled-tags: [style]
+      disabled-checks:
+        # Game and GameConfig are passed by value on purpose: an engine gets a
+        # snapshot of the game, not a handle on the stored one.
+        - hugeParam
+        - rangeValCopy
+
+    revive:
+      enable-all-rules: false
+      rules:
+        - name: blank-imports
+        - name: comment-spacings
+        - name: context-as-argument
+          arguments: [{ allowTypesBefore: "*testing.T,testing.TB" }]
+        - name: context-keys-type
+        - name: dot-imports
+        - name: early-return
+          arguments: ["preserveScope"]
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: increment-decrement
+        - name: indent-error-flow
+          arguments: ["preserveScope"]
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+          arguments: ["preserveScope"]
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: var-declaration
+        - name: var-naming
+
+    sloglint:
+      no-mixed-args: true
+      key-naming-case: snake
+      static-msg: true
+
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+
+    staticcheck:
+      checks:
+        - all
+        # Doc comments are not required on internal packages, see docs/style.md.
+        - -ST1000
+        # Naming is covered by revive/var-naming.
+        - -ST1003
+
+  exclusions:
+    presets:
+      # Ignores unchecked Close, Flush, os.Remove and console prints.
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters: [errcheck, bodyclose, noctx]
+      # Migration files are numbered so they sort by schema version.
+      - path: internal/migrations/
+        text: "don't use an underscore in package name"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes: [github.com/meltyshev/make-noise-bot]
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

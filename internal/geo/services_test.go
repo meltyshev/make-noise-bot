@@ -16,9 +16,11 @@ func TestServiceLinks(t *testing.T) {
 	}
 
 	for service, want := range tests {
-		if got := service.Link(lat, lon); got != want {
-			t.Errorf("%s link = %q, want %q", service, got, want)
-		}
+		t.Run(string(service), func(t *testing.T) {
+			if got := service.Link(lat, lon); got != want {
+				t.Errorf("%s.Link(%v, %v) = %q, want %q", service, lat, lon, got, want)
+			}
+		})
 	}
 }
 
@@ -40,7 +42,7 @@ func TestLinkerFallsBackToDefault(t *testing.T) {
 		}
 	}
 	if got := Linker(string(Google))(1.5, 2.5); got != Google.Link(1.5, 2.5) {
-		t.Errorf("Linker(google) = %q", got)
+		t.Errorf("Linker(google) = %q, want %q", got, Google.Link(1.5, 2.5))
 	}
 }
 

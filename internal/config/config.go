@@ -3,6 +3,7 @@ package config
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -54,7 +55,7 @@ func (c *Config) applyDefaults() {
 	}
 }
 
-// The config contains the token, so it is written with 0600.
+// Save writes the config with mode 0600: it contains the token.
 func (c *Config) Save() error {
 	raw, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
@@ -68,9 +69,9 @@ func (c *Config) UpdateInterval() time.Duration {
 }
 
 // Create writes a fresh config non-interactively.
-func Create(path, token string) (*Config, error) {
-	if _, err := checkToken(token); err != nil {
-		return nil, fmt.Errorf("token check failed: %w", err)
+func Create(ctx context.Context, path, token string) (*Config, error) {
+	if _, err := checkToken(ctx, token); err != nil {
+		return nil, fmt.Errorf("check token: %w", err)
 	}
 	cfg := &Config{
 		Token:                 token,
@@ -86,7 +87,7 @@ func Create(path, token string) (*Config, error) {
 }
 
 // Wizard interactively asks for a token, validates it and saves the config.
-func Wizard(path string, in io.Reader, out io.Writer) (*Config, error) {
+func Wizard(ctx context.Context, path string, in io.Reader, out io.Writer) (*Config, error) {
 	fmt.Fprintln(out, "Файл конфигурации не найден - настроим бота.")
 	fmt.Fprintln(out, "Создайте бота у @BotFather в Telegram и получите токен.")
 	fmt.Fprintln(out)
@@ -104,7 +105,7 @@ func Wizard(path string, in io.Reader, out io.Writer) (*Config, error) {
 			continue
 		}
 
-		username, checkErr := checkToken(token)
+		username, checkErr := checkToken(ctx, token)
 		if checkErr != nil {
 			fmt.Fprintf(out, "Токен не подошел (%v), попробуйте еще раз.\n", checkErr)
 			if err != nil {
@@ -130,9 +131,15 @@ func Wizard(path string, in io.Reader, out io.Writer) (*Config, error) {
 	}
 }
 
-func checkToken(token string) (string, error) {
+func checkToken(ctx context.Context, token string) (string, error) {
+	link := "https://api.telegram.org/bot" + url.PathEscape(token) + "/getMe"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
+	if err != nil {
+		return "", stripURL(err)
+	}
+
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Get("https://api.telegram.org/bot" + url.PathEscape(token) + "/getMe")
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", stripURL(err)
 	}

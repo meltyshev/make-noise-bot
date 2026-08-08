@@ -3,17 +3,16 @@ package bot
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/meltyshev/make-noise-bot/internal/avatar"
 	"github.com/meltyshev/make-noise-bot/internal/texts"
+	"github.com/meltyshev/make-noise-bot/internal/tgsend"
 	"github.com/meltyshev/make-noise-bot/internal/words"
 )
-
-// telegramTextLimit keeps long word lists under Telegram's 4096-char cap.
-const telegramTextLimit = 4000
 
 var morseEN = map[string]string{
 	".-": "a", "-...": "b", "-.-.": "c", "-..": "d", ".": "e", "..-.": "f",
@@ -45,7 +44,7 @@ func cmdMorse() *Command {
 		input = strings.ReplaceAll(input, "_", "-")
 
 		var wordEN, wordRU strings.Builder
-		for _, letter := range strings.Fields(input) {
+		for letter := range strings.FieldsSeq(input) {
 			if common, ok := morseCommon[letter]; ok {
 				wordEN.WriteString(common)
 				wordRU.WriteString(common)
@@ -77,7 +76,7 @@ func cmdNumbersToLetters() *Command {
 	return askFlow("numberstoletters", texts.DescNumbersToLetters, texts.NumbersAsk, texts.NumbersRequired, func(c *Ctx, input string) {
 		var wordEN, wordRU strings.Builder
 
-		for _, token := range strings.Fields(input) {
+		for token := range strings.FieldsSeq(input) {
 			n, err := strconv.Atoi(token)
 			if err != nil || len(token) > 2 || strings.ContainsAny(token, "+-") {
 				fmt.Fprintf(&wordEN, "(%s)", token)
@@ -113,12 +112,12 @@ func wrapIndex(n, length int) int {
 
 func cmdLettersToNumbers() *Command {
 	return askFlow("letterstonumbers", texts.DescLettersToNumbers, texts.LettersAsk, texts.LettersRequired, func(c *Ctx, input string) {
-		for _, word := range strings.Fields(input) {
+		for word := range strings.FieldsSeq(input) {
 			var numbers []string
 			for _, letter := range strings.ToLower(word) {
 				if idx := strings.IndexRune(lowercaseEN, letter); idx >= 0 {
 					numbers = append(numbers, strconv.Itoa(idx+1))
-				} else if idx := runeIndex(lowercaseRU, letter); idx >= 0 {
+				} else if idx := slices.Index(lowercaseRU, letter); idx >= 0 {
 					numbers = append(numbers, strconv.Itoa(idx+1))
 				} else {
 					numbers = append(numbers, fmt.Sprintf("(%c)", letter))
@@ -127,15 +126,6 @@ func cmdLettersToNumbers() *Command {
 			c.Reply(strings.Join(numbers, " "))
 		}
 	})
-}
-
-func runeIndex(runes []rune, r rune) int {
-	for i, candidate := range runes {
-		if candidate == r {
-			return i
-		}
-	}
-	return -1
 }
 
 func cmdIntersection() *Command {
@@ -237,37 +227,37 @@ func cmdMask() *Command {
 
 func joinLimited(items []string) string {
 	joined := strings.Join(items, ", ")
-	if len(joined) <= telegramTextLimit {
+	if len(joined) <= tgsend.Limit {
 		return joined
 	}
-	cut := strings.LastIndex(joined[:telegramTextLimit], ", ")
+	cut := strings.LastIndex(joined[:tgsend.Limit], ", ")
 	if cut < 0 {
-		cut = telegramTextLimit
+		cut = tgsend.Limit
 	}
 	return joined[:cut] + "..."
 }
 
 func cmdCoordinates() *Command {
-	replyDMS := func(c *Ctx, latitude, longitude float64) {
-		latDeg, latMin, latSec := toDMS(latitude)
-		lngDeg, lngMin, lngSec := toDMS(longitude)
+	replyDMS := func(c *Ctx, lat, lon float64) {
+		latDeg, latMin, latSec := toDMS(lat)
+		lonDeg, lonMin, lonSec := toDMS(lon)
 
 		c.Replyf(`%d°%02d'%05.2f"N %d°%02d'%05.2f"E`,
 			latDeg, latMin, latSec,
-			lngDeg, lngMin, lngSec,
+			lonDeg, lonMin, lonSec,
 		)
 	}
 
 	return &Command{
 		Name: "coordinates",
 		Init: func(c *Ctx, args string) {
-			if !c.EnsureAllowed("coordinates") {
+			if !c.EnsureAllowed() {
 				return
 			}
 			if args != "" {
 				c.DelConv()
-				if latitude, longitude, ok := parseCoordinates(args); ok {
-					replyDMS(c, latitude, longitude)
+				if lat, lon, ok := parseCoordinates(args); ok {
+					replyDMS(c, lat, lon)
 				} else {
 					c.Reply(texts.CoordinatesRequired)
 				}
@@ -282,9 +272,9 @@ func cmdCoordinates() *Command {
 				replyDMS(c, c.msg.Location.Latitude, c.msg.Location.Longitude)
 				return
 			}
-			if latitude, longitude, ok := parseCoordinates(c.Text()); ok {
+			if lat, lon, ok := parseCoordinates(c.Text()); ok {
 				c.DelConv()
-				replyDMS(c, latitude, longitude)
+				replyDMS(c, lat, lon)
 				return
 			}
 			c.Reply(texts.CoordinatesRequired)
@@ -292,18 +282,18 @@ func cmdCoordinates() *Command {
 	}
 }
 
-func parseCoordinates(input string) (latitude, longitude float64, ok bool) {
+func parseCoordinates(input string) (lat, lon float64, ok bool) {
 	fields := strings.Fields(strings.ReplaceAll(input, ",", " "))
 	if len(fields) != 2 {
 		return 0, 0, false
 	}
 
-	latitude, latErr := strconv.ParseFloat(fields[0], 64)
-	longitude, lngErr := strconv.ParseFloat(fields[1], 64)
-	if latErr != nil || lngErr != nil {
+	lat, latErr := strconv.ParseFloat(fields[0], 64)
+	lon, lonErr := strconv.ParseFloat(fields[1], 64)
+	if latErr != nil || lonErr != nil {
 		return 0, 0, false
 	}
-	return latitude, longitude, true
+	return lat, lon, true
 }
 
 func toDMS(decimal float64) (int, int, float64) {

@@ -109,12 +109,14 @@ they open the map app on a phone.
 Go 1.26+:
 
 ```sh
-go build .          # binary for your machine
-go test ./...
+go build .              # binary for your machine
+go test -race ./...
+golangci-lint run       # go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 ```
 
 Cross-compilation is a plain `GOOS`/`GOARCH` matter (CGO is not used), and
-releases are produced by GoReleaser from a `v*` tag.
+releases are produced by GoReleaser from a `v*` tag. Conventions for the code
+itself are in [CLAUDE.md](CLAUDE.md) and [docs/](docs).
 
 ## Notes
 

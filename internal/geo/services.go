@@ -3,6 +3,7 @@ package geo
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 )
 
@@ -21,12 +22,7 @@ const (
 var Services = []Service{Yandex, Google, TwoGIS, OSM}
 
 func (s Service) Valid() bool {
-	for _, known := range Services {
-		if known == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(Services, s)
 }
 
 func (s Service) Label() string {

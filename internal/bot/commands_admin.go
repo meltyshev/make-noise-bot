@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-telegram/bot/models"
-
 	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
@@ -41,8 +39,9 @@ func cmdPermission() *Command {
 				return
 			}
 
-			text := fmt.Sprintf(texts.PermissionRequestTitleFmt, c.app.me.Username)
-			text += "type: " + chat.Type
+			var text strings.Builder
+			fmt.Fprintf(&text, texts.PermissionRequestTitleFmt, c.app.me.Username)
+			text.WriteString("type: " + chat.Type)
 			for _, field := range []struct{ name, value string }{
 				{"title", chat.Title},
 				{"username", chat.Username},
@@ -50,13 +49,13 @@ func cmdPermission() *Command {
 				{"last_name", chat.LastName},
 			} {
 				if field.value != "" {
-					text += fmt.Sprintf("\n%s: %s", field.name, field.value)
+					fmt.Fprintf(&text, "\n%s: %s", field.name, field.value)
 				}
 			}
-			text += fmt.Sprintf("\nid: %d", chat.ID)
+			fmt.Fprintf(&text, "\nid: %d", chat.ID)
 
-			if err := c.app.sendInline(c.ctx, c.app.adminID(), text, permRequestKeyboard(chat.ID)); err != nil {
-				c.app.log.Error("send to admin failed", "error", err)
+			if err := c.app.sendInline(c.ctx, c.app.adminID(), text.String(), permRequestKeyboard(chat.ID)); err != nil {
+				c.app.log.Warn("send to admin failed", "error", err)
 			}
 			c.Reply(texts.PermissionRequestSent)
 		},
@@ -208,13 +207,13 @@ func cmdWrite() *Command {
 			}
 
 			c.SetConv("write")
-			c.Reply(texts.AskChatIDWrite)
+			c.Reply(texts.AskChatID)
 		},
 		Handle: func(c *Ctx, state any) {
 			if state == nil {
 				chatID, err := strconv.ParseInt(strings.TrimSpace(c.Text()), 10, 64)
 				if err != nil {
-					c.Reply(texts.AskChatIDWrite)
+					c.Reply(texts.AskChatID)
 					return
 				}
 				c.SetConvState("write", chatID)
@@ -240,12 +239,7 @@ func cmdChats() *Command {
 			if !c.IsAdmin() || !c.EnsurePrivate() {
 				return
 			}
-			var (
-				text     string
-				keyboard [][]models.InlineKeyboardButton
-			)
-			c.app.store.View(func(d *store.Data) { text, keyboard = renderChatsList(d) })
-			c.ReplyInline(text, keyboard)
+			c.ReplyMenu(renderChatsList)
 		},
 	}
 }
@@ -257,12 +251,7 @@ func cmdConfig() *Command {
 			if !c.IsAdmin() || !c.EnsurePrivate() {
 				return
 			}
-			var (
-				text     string
-				keyboard [][]models.InlineKeyboardButton
-			)
-			c.app.store.View(func(d *store.Data) { text, keyboard = renderConfigMenu(d) })
-			c.ReplyInline(text, keyboard)
+			c.ReplyMenu(renderConfigMenu)
 		},
 		Handle: func(c *Ctx, state any) {
 			pick, ok := state.(pickManagers)
@@ -290,13 +279,7 @@ func cmdConfig() *Command {
 
 				c.DelConv()
 				c.ReplyRemoveKeyboard(texts.Done)
-
-				var (
-					text     string
-					keyboard [][]models.InlineKeyboardButton
-				)
-				c.app.store.View(func(d *store.Data) { text, keyboard = renderManagers(d) })
-				c.app.editMessage(c.ctx, pick.ChatID, pick.MsgID, text, keyboard)
+				c.app.editMenu(c.ctx, pick.ChatID, pick.MsgID, renderManagers)
 				return
 			}
 

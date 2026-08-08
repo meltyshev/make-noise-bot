@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -94,7 +95,7 @@ func TestApplyLegacySubscribers(t *testing.T) {
 	}
 
 	if city := state["game_config"].(map[string]any)["city"]; city != "e-burg" {
-		t.Errorf("city = %v", city)
+		t.Errorf("city = %v, want e-burg", city)
 	}
 }
 
@@ -150,7 +151,7 @@ func TestApplyIsIdempotent(t *testing.T) {
 	after := read(t, path)
 	beforeRaw, _ := json.Marshal(before)
 	afterRaw, _ := json.Marshal(after)
-	if string(beforeRaw) != string(afterRaw) {
+	if !bytes.Equal(beforeRaw, afterRaw) {
 		t.Errorf("state changed on rerun:\n%s\n%s", beforeRaw, afterRaw)
 	}
 }
@@ -168,7 +169,7 @@ func TestApplyWithoutSubscribers(t *testing.T) {
 		t.Errorf("subscriptions invented: %v", subs)
 	}
 	if state["schema_version"] != float64(Current()) {
-		t.Errorf("schema_version = %v", state["schema_version"])
+		t.Errorf("schema_version = %v, want %d", state["schema_version"], Current())
 	}
 }
 

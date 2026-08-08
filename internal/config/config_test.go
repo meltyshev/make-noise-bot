@@ -20,10 +20,10 @@ func TestLoadAppliesDefaults(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	if cfg.UpdateIntervalSeconds != DefaultUpdateInterval {
-		t.Errorf("interval = %d", cfg.UpdateIntervalSeconds)
+		t.Errorf("UpdateIntervalSeconds = %d, want %d", cfg.UpdateIntervalSeconds, DefaultUpdateInterval)
 	}
 	if cfg.StatePath != filepath.Join(filepath.Dir(path), "state.json") {
-		t.Errorf("state path = %q", cfg.StatePath)
+		t.Errorf("StatePath = %q, want it next to the config", cfg.StatePath)
 	}
 }
 
@@ -46,7 +46,7 @@ func TestStripURLDropsToken(t *testing.T) {
 
 func TestStripURLKeepsOtherErrors(t *testing.T) {
 	err := errors.New("Unauthorized")
-	if got := stripURL(err); got != err {
+	if got := stripURL(err); !errors.Is(got, err) {
 		t.Errorf("plain error changed: %v", got)
 	}
 }

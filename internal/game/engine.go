@@ -175,17 +175,16 @@ func readBody(resp *http.Response) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 }
 
-func firstBetween(s, open, close string) (string, bool) {
-	start := strings.Index(s, open)
-	if start < 0 {
+func firstBetween(s, from, to string) (string, bool) {
+	_, rest, ok := strings.Cut(s, from)
+	if !ok {
 		return "", false
 	}
-	rest := s[start+len(open):]
-	end := strings.Index(rest, close)
-	if end < 0 {
+	value, _, ok := strings.Cut(rest, to)
+	if !ok {
 		return "", false
 	}
-	return rest[:end], true
+	return value, true
 }
 
 // betweenRows returns the pieces strictly between delimiters; the head and
@@ -259,5 +258,3 @@ func truthy(v any) bool {
 		return true
 	}
 }
-
-func intPtr(n int) *int { return &n }

@@ -2,12 +2,13 @@ package game
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
 	"mime/multipart"
 	"net/http"
 	"regexp"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -190,7 +191,7 @@ func (s *liteSnapshot) LevelNumber() *int {
 	if err != nil {
 		return nil
 	}
-	return intPtr(n)
+	return new(n)
 }
 
 func (s *liteSnapshot) Progress() string {
@@ -373,7 +374,7 @@ func (s *liteSnapshot) Spoilers() []Spoiler {
 		entries = append(entries, entry{at: closed[0], number: number})
 	}
 
-	sort.Slice(entries, func(i, j int) bool { return entries[i].at < entries[j].at })
+	slices.SortFunc(entries, func(a, b entry) int { return cmp.Compare(a.at, b.at) })
 
 	spoilers := make([]Spoiler, 0, len(entries))
 	for i, item := range entries {

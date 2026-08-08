@@ -15,8 +15,9 @@ import (
 	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
 
-// Telegram's message limit is 4096 UTF-16 units; keep a margin.
-const limit = 4000
+// Limit is how much text goes into one message. Telegram allows 4096 UTF-16
+// units; the margin covers the tags a split part has to reopen.
+const Limit = 4000
 
 type Message struct {
 	ChatID  int64
@@ -35,7 +36,7 @@ func HTML(ctx context.Context, b *tgbot.Bot, msg Message) error {
 	own := htmltext.Links(msg.Text)
 	text := htmltext.LinkCoordinates(msg.Text, msg.MapLink)
 
-	parts := htmltext.Split(text, limit)
+	parts := htmltext.Split(text, Limit)
 	for i, part := range parts {
 		params := &tgbot.SendMessageParams{
 			ChatID:             msg.ChatID,
@@ -79,7 +80,7 @@ func preview(part string, own []string) *models.LinkPreviewOptions {
 
 func sendUnparsed(ctx context.Context, b *tgbot.Bot, chatID int64, part string) error {
 	fallback := texts.HTMLFallback + "\n<pre>" + html.EscapeString(part) + "</pre>"
-	for _, piece := range htmltext.Split(fallback, limit) {
+	for _, piece := range htmltext.Split(fallback, Limit) {
 		_, err := b.SendMessage(ctx, &tgbot.SendMessageParams{
 			ChatID:    chatID,
 			Text:      piece,

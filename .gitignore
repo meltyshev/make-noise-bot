@@ -1,5 +1,7 @@
 /make-noise-bot
 *.exe
+*.test
+coverage.out
 
 # Runtime files contain the bot token and game credentials.
 config.json

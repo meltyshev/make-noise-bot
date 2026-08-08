@@ -175,8 +175,9 @@ func (c *Classic) EnterCode(ctx context.Context, code string, pinnedLevel *int) 
 	return result
 }
 
-// The classic engine has no separate spoiler form: it recognises a spoiler
-// code sent as a normal one.
+// EnterSpoilerCode sends the code through the usual form: the classic engine
+// has no separate spoiler form and recognises a spoiler code sent as a normal
+// one.
 func (c *Classic) EnterSpoilerCode(ctx context.Context, code string) EnterCodeResult {
 	return c.EnterCode(ctx, code, nil)
 }
@@ -221,14 +222,14 @@ func (c *Classic) setHeaders(req *http.Request) {
 }
 
 func (c *Classic) Load(ctx context.Context) (Snapshot, error) {
-	snap, err, sessionSuspect := c.loadOnce(ctx)
+	snap, sessionSuspect, err := c.loadOnce(ctx)
 	if sessionSuspect && c.relogin(ctx) {
-		snap, err, _ = c.loadOnce(ctx)
+		snap, _, err = c.loadOnce(ctx)
 	}
 	return snap, err
 }
 
-func (c *Classic) loadOnce(ctx context.Context) (Snapshot, error, bool) {
+func (c *Classic) loadOnce(ctx context.Context) (Snapshot, bool, error) {
 	loadURL := fmt.Sprintf("%s?%s", c.link, url.Values{
 		"s":   {c.session},
 		"api": {"true"},
@@ -236,20 +237,20 @@ func (c *Classic) loadOnce(ctx context.Context) (Snapshot, error, bool) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, loadURL, nil)
 	if err != nil {
-		return nil, err, false
+		return nil, false, err
 	}
 	req.Header.Set("User-Agent", userAgent)
 
 	resp, err := c.env.HTTPFollow.Do(req)
 	if err != nil {
-		return nil, err, false
+		return nil, false, err
 	}
 	raw, err := readBody(resp)
 	if err != nil {
-		return nil, err, false
+		return nil, false, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("classic load: HTTP %d", resp.StatusCode), false
+		return nil, false, fmt.Errorf("classic load: HTTP %d", resp.StatusCode)
 	}
 
 	content := decodeBody(resp, raw)
@@ -264,7 +265,7 @@ func (c *Classic) loadOnce(ctx context.Context) (Snapshot, error, bool) {
 	if err := decoder.Decode(&data); err != nil {
 		// Most likely an HTML login page: the session expired.
 		c.env.debug("classic-load", raw)
-		return nil, fmt.Errorf("classic load: %w", err), true
+		return nil, true, fmt.Errorf("classic load: %w", err)
 	}
 
 	snap := &classicSnapshot{link: c.link}
@@ -272,10 +273,10 @@ func (c *Classic) loadOnce(ctx context.Context) (Snapshot, error, bool) {
 		snap.level = level
 		if _, ok := asInt(level["levelNumber"]); !ok {
 			c.env.debug("classic-load", raw)
-			return nil, errors.New("classic load: unreadable levelNumber"), false
+			return nil, false, errors.New("classic load: unreadable levelNumber")
 		}
 	}
-	return snap, nil, false
+	return snap, false, nil
 }
 
 type classicSnapshot struct {
@@ -288,7 +289,7 @@ func (s *classicSnapshot) LevelNumber() *int {
 		return nil
 	}
 	n, _ := asInt(s.level["levelNumber"])
-	return intPtr(n)
+	return new(n)
 }
 
 func (s *classicSnapshot) Progress() string {
@@ -389,7 +390,7 @@ func (s *classicSnapshot) Sectors() []Sector {
 		name = capitalize(name)
 
 		var codes []SectorCode
-		for _, rawCode := range strings.Split(row[idx+2:], ", ") {
+		for rawCode := range strings.SplitSeq(row[idx+2:], ", ") {
 			var number int
 			if isMain {
 				number = mainCounter

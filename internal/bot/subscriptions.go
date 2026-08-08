@@ -134,12 +134,9 @@ func (a *App) subscriptionsCallback(c *cb, forGame bool, args []string) {
 	}
 
 	showList := func() {
-		var (
-			text     string
-			keyboard [][]models.InlineKeyboardButton
-		)
-		a.store.View(func(d *store.Data) { text, keyboard = renderSubscribers(d, forGame) })
-		c.edit(text, keyboard)
+		c.show(func(d *store.Data) (string, [][]models.InlineKeyboardButton) {
+			return renderSubscribers(d, forGame)
+		})
 	}
 
 	switch args[0] {
@@ -163,12 +160,9 @@ func (a *App) subscriptionsCallback(c *cb, forGame bool, args []string) {
 
 	if args[0] == "d" {
 		c.answer("")
-		var (
-			text     string
-			keyboard [][]models.InlineKeyboardButton
-		)
-		a.store.View(func(d *store.Data) { text, keyboard = renderSubscriptionDetail(d, forGame, chatID, solo) })
-		c.edit(text, keyboard)
+		c.show(func(d *store.Data) (string, [][]models.InlineKeyboardButton) {
+			return renderSubscriptionDetail(d, forGame, chatID, solo)
+		})
 		return
 	}
 

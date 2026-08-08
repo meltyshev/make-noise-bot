@@ -3,12 +3,12 @@
 package store
 
 import (
-	"encoding/json"
-	"fmt"
+	"cmp"
 	"os"
-	"path/filepath"
-	"sort"
+	"slices"
 	"sync"
+
+	"github.com/meltyshev/make-noise-bot/internal/jsonfile"
 )
 
 type Store struct {
@@ -21,15 +21,12 @@ type Store struct {
 func Open(path string) (*Store, error) {
 	s := &Store{path: path, data: newData()}
 
-	raw, err := os.ReadFile(path)
+	err := jsonfile.Read(path, s.data)
 	if os.IsNotExist(err) {
 		return s, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read state: %w", err)
-	}
-	if err := json.Unmarshal(raw, s.data); err != nil {
-		return nil, fmt.Errorf("parse state %s: %w", path, err)
+		return nil, err
 	}
 
 	// Guard against hand-edited files with nulled collections.
@@ -72,29 +69,7 @@ func (s *Store) Update(f func(d *Data)) error {
 }
 
 func (s *Store) persist() error {
-	raw, err := json.MarshalIndent(s.data, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal state: %w", err)
-	}
-	raw = append(raw, '\n')
-
-	tmp, err := os.CreateTemp(filepath.Dir(s.path), ".state-*.json")
-	if err != nil {
-		return fmt.Errorf("write state: %w", err)
-	}
-	defer os.Remove(tmp.Name())
-
-	if _, err := tmp.Write(raw); err != nil {
-		tmp.Close()
-		return fmt.Errorf("write state: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("write state: %w", err)
-	}
-	if err := os.Rename(tmp.Name(), s.path); err != nil {
-		return fmt.Errorf("write state: %w", err)
-	}
-	return nil
+	return jsonfile.Write(s.path, s.data)
 }
 
 // Accessors below return copies.
@@ -181,9 +156,7 @@ func (s *Store) Rating() []Player {
 			players = append(players, *p)
 		}
 	})
-	sort.SliceStable(players, func(i, j int) bool {
-		return players[i].Total > players[j].Total
-	})
+	slices.SortStableFunc(players, func(a, b Player) int { return cmp.Compare(b.Total, a.Total) })
 	return players
 }
 

@@ -32,13 +32,12 @@ func LinkCoordinates(text string, link func(lat, lon float64) string) string {
 
 		switch tok.name {
 		case "a":
-			if tok.closing {
-				depth--
-			} else {
+			if !tok.closing {
 				depth++
 				out.WriteString(rewriteGeoHref(tok.raw, link))
 				continue
 			}
+			depth--
 		case "code", "pre":
 			if tok.closing {
 				depth--
@@ -113,14 +112,13 @@ func Links(text string) []string {
 }
 
 func hrefOf(tag string) (string, bool) {
-	idx := strings.Index(tag, `href="`)
-	if idx < 0 {
+	_, rest, ok := strings.Cut(tag, `href="`)
+	if !ok {
 		return "", false
 	}
-	rest := tag[idx+len(`href="`):]
-	end := strings.IndexByte(rest, '"')
-	if end < 0 {
+	href, _, ok := strings.Cut(rest, `"`)
+	if !ok {
 		return "", false
 	}
-	return rest[:end], true
+	return href, true
 }

@@ -138,7 +138,7 @@ func balanced(t *testing.T, part string) {
 func TestSplitShort(t *testing.T) {
 	parts := Split("короткий <b>текст</b>", 100)
 	if len(parts) != 1 || parts[0] != "короткий <b>текст</b>" {
-		t.Errorf("parts = %q", parts)
+		t.Errorf("Split = %q, want one unchanged part", parts)
 	}
 }
 
@@ -168,7 +168,7 @@ func TestSplitKeepsTagsBalanced(t *testing.T) {
 func TestSplitPrefersNewlines(t *testing.T) {
 	text := strings.Repeat("строка номер такой-то\n", 30)
 	for _, part := range Split(strings.TrimSpace(text), 100) {
-		for _, line := range strings.Split(part, "\n") {
+		for line := range strings.SplitSeq(part, "\n") {
 			if line != "строка номер такой-то" {
 				t.Errorf("cut mid-line: %q", line)
 			}

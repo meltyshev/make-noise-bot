@@ -6,6 +6,7 @@ import (
 	"html"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -13,12 +14,12 @@ import (
 )
 
 var (
-	whitespaceRe    = regexp.MustCompile(`\s+`)
-	multiSpaceRe    = regexp.MustCompile(` {2,}`)
-	spacesAfterNLRe = regexp.MustCompile(`\n +`)
-	spacesBeforeNL  = regexp.MustCompile(` +\n`)
-	extraNewlinesRe = regexp.MustCompile(`\n\n\n+`)
-	tagRe           = regexp.MustCompile(`<[^>]*>`)
+	whitespaceRe     = regexp.MustCompile(`\s+`)
+	multiSpaceRe     = regexp.MustCompile(` {2,}`)
+	spacesAfterNLRe  = regexp.MustCompile(`\n +`)
+	spacesBeforeNLRe = regexp.MustCompile(` +\n`)
+	extraNewlinesRe  = regexp.MustCompile(`\n\n\n+`)
+	tagRe            = regexp.MustCompile(`<[^>]*>`)
 )
 
 // Inline tags are normalized to the canonical Telegram set.
@@ -80,8 +81,8 @@ func Convert(fragment, baseURL string) string {
 	// reopening anything above it so the output stays properly nested.
 	closeTag := func(name string) {
 		idx := -1
-		for i := len(stack) - 1; i >= 0; i-- {
-			if stack[i].name == name {
+		for i, v := range slices.Backward(stack) {
+			if v.name == name {
 				idx = i
 				break
 			}
@@ -171,7 +172,7 @@ func Convert(fragment, baseURL string) string {
 
 	text := multiSpaceRe.ReplaceAllString(b.String(), " ")
 	text = spacesAfterNLRe.ReplaceAllString(text, "\n")
-	text = spacesBeforeNL.ReplaceAllString(text, "\n")
+	text = spacesBeforeNLRe.ReplaceAllString(text, "\n")
 	text = extraNewlinesRe.ReplaceAllString(text, "\n\n")
 	return strings.TrimSpace(text)
 }
@@ -221,8 +222,8 @@ func Split(s string, limit int) []string {
 		part := cur.String()
 		var b strings.Builder
 		b.WriteString(part)
-		for i := len(open) - 1; i >= 0; i-- {
-			b.WriteString("</" + open[i].name + ">")
+		for _, v := range slices.Backward(open) {
+			b.WriteString("</" + v.name + ">")
 		}
 		if strings.TrimSpace(StripTags(b.String())) != "" {
 			parts = append(parts, strings.TrimSpace(b.String()))
@@ -246,8 +247,8 @@ func Split(s string, limit int) []string {
 			cur.WriteString(tok.raw)
 			curLen += tagLen
 			if tok.closing {
-				for i := len(open) - 1; i >= 0; i-- {
-					if open[i].name == tok.name {
+				for i, v := range slices.Backward(open) {
+					if v.name == tok.name {
 						open = append(open[:i], open[i+1:]...)
 						break
 					}

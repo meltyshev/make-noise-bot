@@ -103,9 +103,8 @@ const (
 
 // Admin commands.
 const (
-	AskChatID      = "Какой chat id?"
-	AskChatIDWrite = "Какой chat_id?"
-	WriteWhat      = "Что отправить?"
+	AskChatID = "Какой chat id?"
+	WriteWhat = "Что отправить?"
 
 	ChatsChoose      = "Выберите чат"
 	ChatsDeleted     = "Чат удален"
@@ -162,7 +161,6 @@ const (
 	GameConfigPincodeAsk  = "Пинка:"
 	GameConfigGameIDAsk   = "Номер игры:"
 	GameConfigLeagueAsk   = "Лига:"
-	GameConfigFormatsAsk  = "Форматы кода:"
 
 	SubscribersTitle        = "Подписчики:"
 	GameSubscribersTitle    = "Подписчики текущей игры:"

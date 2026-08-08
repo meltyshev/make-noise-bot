@@ -75,11 +75,11 @@ func New(cfg *config.Config, st *store.Store, logger *slog.Logger) (*App, error)
 		// Handle updates strictly in order: codes must not race each other.
 		tgbot.WithNotAsyncHandlers(),
 		tgbot.WithErrorsHandler(func(err error) {
-			a.log.Error("telegram", "error", err)
+			a.log.Error("telegram client failed", "error", err)
 		}),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("telegram: %w", err)
+		return nil, fmt.Errorf("create telegram client: %w", err)
 	}
 	a.tg = tg
 
@@ -96,19 +96,19 @@ func (a *App) ReportError(err error) { a.reportError(err) }
 func (a *App) Run(ctx context.Context) error {
 	me, err := a.tg.GetMe(ctx)
 	if err != nil {
-		return fmt.Errorf("getMe: %w", err)
+		return fmt.Errorf("identify bot: %w", err)
 	}
 	a.me = me
 
 	if err := a.publishCommandMenu(ctx); err != nil {
-		a.log.Warn("setMyCommands failed", "error", err)
+		a.log.Warn("publish command menu failed", "error", err)
 	}
 
 	a.conv.StartJanitor(ctx)
 
 	a.log.Info("bot started", "username", me.Username)
 	if a.adminID() == 0 {
-		a.log.Info("no admin configured: send /start to the bot to become admin")
+		a.log.Info("no admin configured, send /start to the bot to become admin")
 	}
 
 	a.tg.Start(ctx)
@@ -193,12 +193,12 @@ func (a *App) reportError(err error) {
 func (a *App) debugDump(kind string, body []byte) {
 	dir := filepath.Join(filepath.Dir(a.cfg.StatePath), "debug")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		a.log.Error("debug dump", "error", err)
+		a.log.Warn("debug dump failed", "error", err)
 		return
 	}
 	name := filepath.Join(dir, fmt.Sprintf("%s-%s.txt", time.Now().Format("20060102-150405"), kind))
 	if err := os.WriteFile(name, body, 0o644); err != nil {
-		a.log.Error("debug dump", "error", err)
+		a.log.Warn("debug dump failed", "error", err)
 		return
 	}
 	a.log.Info("engine payload dumped", "file", name)

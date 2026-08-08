@@ -19,6 +19,7 @@ type Ctx struct {
 	ctx context.Context
 	app *App
 	msg *models.Message
+	cmd string // the command being handled, set by the dispatcher
 }
 
 func (c *Ctx) Text() string  { return c.msg.Text }
@@ -113,6 +114,11 @@ func (c *Ctx) ReplyInline(text string, keyboard [][]models.InlineKeyboardButton)
 	})
 }
 
+// ReplyMenu sends a freshly rendered menu as a new message.
+func (c *Ctx) ReplyMenu(r render) {
+	c.ReplyInline(c.app.renderMenu(r))
+}
+
 func (c *Ctx) ReplyRemoveKeyboard(text string) {
 	c.send(&tgbot.SendMessageParams{
 		ChatID:          c.ChatID(),
@@ -134,18 +140,6 @@ func (c *Ctx) ReplyPhoto(png []byte, caption string) {
 	}
 }
 
-func (c *Ctx) ReplyLocation(latitude, longitude float64) {
-	_, err := c.app.tg.SendLocation(c.ctx, &tgbot.SendLocationParams{
-		ChatID:          c.ChatID(),
-		Latitude:        latitude,
-		Longitude:       longitude,
-		ReplyParameters: c.replyParams(),
-	})
-	if err != nil {
-		c.app.reportError(fmt.Errorf("send location: %w", err))
-	}
-}
-
 func (c *Ctx) Send(chatID int64, text string) error {
 	_, err := c.app.tg.SendMessage(c.ctx, &tgbot.SendMessageParams{ChatID: chatID, Text: text})
 	return err
@@ -154,7 +148,7 @@ func (c *Ctx) Send(chatID int64, text string) error {
 func (c *Ctx) SetConv(name string)             { c.app.conv.Set(c.UserID(), c.ChatID(), name, nil) }
 func (c *Ctx) SetConvState(name string, s any) { c.app.conv.Set(c.UserID(), c.ChatID(), name, s) }
 func (c *Ctx) DelConv()                        { c.app.conv.Delete(c.UserID(), c.ChatID()) }
-func (c *Ctx) Conv() (conversation, bool)      { return c.app.conv.Get(c.UserID(), c.ChatID()) }
+func (c *Ctx) conv() (conversation, bool)      { return c.app.conv.Get(c.UserID(), c.ChatID()) }
 
 func (c *Ctx) IsAdmin() bool {
 	return c.UserID() == c.app.adminID()
@@ -165,16 +159,16 @@ func (c *Ctx) IsManager() bool {
 }
 
 // EnsureAllowed replies with instructions when the chat has no permission.
-func (c *Ctx) EnsureAllowed(commandName string) bool {
+func (c *Ctx) EnsureAllowed() bool {
 	chat, ok := c.app.store.Chat(c.ChatID())
 	if !ok {
-		c.Replyf(texts.PermissionNeeded, commandName)
+		c.Replyf(texts.PermissionNeeded, c.cmd)
 		return false
 	}
 
 	switch chat.Permission {
 	case store.PermissionRequested:
-		c.Replyf(texts.PermissionPending, commandName)
+		c.Replyf(texts.PermissionPending, c.cmd)
 	case store.PermissionForbidden:
 		c.Reply(texts.PermissionForbidden)
 	}

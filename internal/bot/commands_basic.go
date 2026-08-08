@@ -43,7 +43,7 @@ func cmdCancel() *Command {
 		Name:        "cancel",
 		Description: texts.DescCancel,
 		Init: func(c *Ctx, _ string) {
-			if conv, ok := c.Conv(); ok {
+			if conv, ok := c.conv(); ok {
 				c.DelConv()
 				c.Replyf(texts.CancelDone, conv.Name)
 			} else {

@@ -1,4 +1,4 @@
-// make-noise-bot is a Telegram bot for playing Dozor city quest games.
+// Command make-noise-bot is a Telegram bot for playing Dozor city quest games.
 package main
 
 import (
@@ -21,6 +21,14 @@ import (
 var version = "dev" // set by goreleaser
 
 func main() {
+	logger := slog.New(secret.NewLogHandler(slog.NewTextHandler(os.Stderr, nil)))
+	if err := run(logger); err != nil {
+		logger.Error("bot failed", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(logger *slog.Logger) error {
 	var (
 		configPath  = flag.String("config", "config.json", "path to the config file")
 		token       = flag.String("token", "", "bot token; creates the config non-interactively")
@@ -32,21 +40,20 @@ func main() {
 
 	if *showVersion {
 		fmt.Println("make-noise-bot", version)
-		return
+		return nil
 	}
 
-	logger := slog.New(secret.NewLogHandler(slog.NewTextHandler(os.Stderr, nil)))
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	cfg, err := loadConfig(*configPath, *token)
+	cfg, err := loadConfig(ctx, *configPath, *token)
 	if err != nil {
-		logger.Error("config", "error", err)
-		os.Exit(1)
+		return err
 	}
 	if *adminID != 0 && cfg.AdminID != *adminID {
 		cfg.AdminID = *adminID
 		if err := cfg.Save(); err != nil {
-			logger.Error("config", "error", err)
-			os.Exit(1)
+			return fmt.Errorf("save config: %w", err)
 		}
 	}
 	if *debug {
@@ -55,8 +62,7 @@ func main() {
 
 	applied, err := migrations.Apply(cfg.StatePath)
 	if err != nil {
-		logger.Error("migrations", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("migrate state: %w", err)
 	}
 	for _, name := range applied {
 		logger.Info("state migrated", "migration", name)
@@ -64,41 +70,36 @@ func main() {
 
 	st, err := store.Open(cfg.StatePath)
 	if err != nil {
-		logger.Error("state", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("open state: %w", err)
 	}
 
 	app, err := bot.New(cfg, st, logger)
 	if err != nil {
-		logger.Error("startup", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("start bot: %w", err)
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	go updater.New(st, app.GameEnv(), app.TG(), logger, cfg.UpdateInterval(), app.ReportError).Run(ctx)
 
 	if err := app.Run(ctx); err != nil {
-		logger.Error("run", "error", err)
-		os.Exit(1)
+		return err
 	}
 	logger.Info("bot stopped")
+	return nil
 }
 
-func loadConfig(path, token string) (*config.Config, error) {
+func loadConfig(ctx context.Context, path, token string) (*config.Config, error) {
 	cfg, err := config.Load(path)
 	if err == nil {
 		return cfg, nil
 	}
 	if !os.IsNotExist(err) {
-		return nil, err
+		return nil, fmt.Errorf("load config: %w", err)
 	}
 
 	if token != "" {
-		return config.Create(path, token)
+		return config.Create(ctx, path, token)
 	}
-	cfg, err = config.Wizard(path, os.Stdin, os.Stdout)
+	cfg, err = config.Wizard(ctx, path, os.Stdin, os.Stdout)
 	if err != nil {
 		return nil, fmt.Errorf("%w - либо запустите с флагом --token", err)
 	}

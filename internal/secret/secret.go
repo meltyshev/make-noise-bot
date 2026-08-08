@@ -3,6 +3,7 @@
 package secret
 
 import (
+	"slices"
 	"strings"
 	"sync"
 )
@@ -23,10 +24,8 @@ func Register(value string) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	for _, known := range values {
-		if known == value {
-			return
-		}
+	if slices.Contains(values, value) {
+		return
 	}
 	values = append(values, value)
 }

@@ -1,7 +1,6 @@
 package game
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -42,7 +41,7 @@ func TestLiteLoadAndSnapshot(t *testing.T) {
 	defer srv.Close()
 
 	engine := newLite(liteGame(), testEnv(srv))
-	snap, err := engine.Load(context.Background())
+	snap, err := engine.Load(t.Context())
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -185,7 +184,7 @@ func TestLiteEnterCodeMultipart(t *testing.T) {
 	defer srv.Close()
 
 	engine := newLite(liteGame(), testEnv(srv))
-	result := engine.EnterCode(context.Background(), "др1", nil)
+	result := engine.EnterCode(t.Context(), "др1", nil)
 	if !result.Accepted || result.StatusCode != 17 {
 		t.Fatalf("result = %+v, want accepted status 17", result)
 	}
@@ -214,7 +213,7 @@ func TestLiteEnterSpoilerCode(t *testing.T) {
 	defer srv.Close()
 
 	engine := newLite(liteGame(), testEnv(srv))
-	result := engine.EnterSpoilerCode(context.Background(), "криптекс")
+	result := engine.EnterSpoilerCode(t.Context(), "криптекс")
 	if result.Accepted || result.StatusCode != 41 {
 		t.Fatalf("result = %+v, want the rejection status 41", result)
 	}
@@ -223,14 +222,14 @@ func TestLiteEnterSpoilerCode(t *testing.T) {
 func TestLiteLoadDecodesWindows1251(t *testing.T) {
 	// The real site serves windows-1251; the body must be transcoded.
 	raw := []byte("<!--levelTextBegin-->\xcf\xf0\xe8\xe2\xe5\xf2<!--levelTextEnd-->")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=windows-1251")
 		w.Write(raw)
 	}))
 	defer srv.Close()
 
 	engine := newLite(liteGame(), testEnv(srv))
-	snap, err := engine.Load(context.Background())
+	snap, err := engine.Load(t.Context())
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -240,7 +239,7 @@ func TestLiteLoadDecodesWindows1251(t *testing.T) {
 }
 
 func TestLiteLoadRejectsRedirect(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Location", "/somewhere")
 		w.WriteHeader(http.StatusFound)
 		io.WriteString(w, "redirecting")
@@ -248,7 +247,7 @@ func TestLiteLoadRejectsRedirect(t *testing.T) {
 	defer srv.Close()
 
 	engine := newLite(liteGame(), testEnv(srv))
-	if _, err := engine.Load(context.Background()); err == nil {
+	if _, err := engine.Load(t.Context()); err == nil {
 		t.Fatal("Load should fail on a redirect answer")
 	}
 }

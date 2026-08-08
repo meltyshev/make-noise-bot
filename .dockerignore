@@ -3,8 +3,10 @@
 .vscode
 data/
 dist/
+docs/
 config.json
 state.json
+make-noise-bot
 *.md
 Dockerfile
 docker-compose.yml

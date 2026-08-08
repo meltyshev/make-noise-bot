@@ -1,7 +1,6 @@
 package game
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,13 +22,13 @@ func prequelGame(name string) store.Game {
 }
 
 func TestPrequelSectors(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(prequelPayload))
 	}))
 	defer srv.Close()
 
 	engine := newPrequel(prequelGame(NameClassicPrequel), testEnv(srv))
-	snap, err := engine.Load(context.Background())
+	snap, err := engine.Load(t.Context())
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -71,7 +70,7 @@ func TestPrequelEnterCode(t *testing.T) {
 	defer srv.Close()
 
 	engine := newPrequel(prequelGame(NameLitePrequel), testEnv(srv))
-	result := engine.EnterCode(context.Background(), "code", nil)
+	result := engine.EnterCode(t.Context(), "code", nil)
 	if !result.Accepted || result.StatusCode != 54 {
 		t.Fatalf("result = %+v, want accepted status 54", result)
 	}
@@ -94,7 +93,7 @@ func TestPrequelLinks(t *testing.T) {
 func TestStartUnknownEngine(t *testing.T) {
 	cfg := store.DefaultGameConfig()
 	cfg.Engine = "Nonsense"
-	if _, err := Start(context.Background(), cfg, DefaultEnv()); err == nil {
+	if _, err := Start(t.Context(), cfg, DefaultEnv()); err == nil {
 		t.Fatal("Start should reject unknown engines")
 	}
 	if engine := New(store.Game{Engine: "Nonsense"}, DefaultEnv()); engine != nil {

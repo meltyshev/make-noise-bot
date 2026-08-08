@@ -103,29 +103,31 @@ func TestFindSeveralAndOffsets(t *testing.T) {
 
 func TestParseURI(t *testing.T) {
 	tests := []struct {
-		uri  string
-		lat  float64
-		lon  float64
-		want bool
+		name    string
+		uri     string
+		wantLat float64
+		wantLon float64
+		wantOK  bool
 	}{
-		{"geo:56.838011,60.597465", 56.838011, 60.597465, true},
-		{"geo:56.83,60.59", 56.83, 60.59, true},
-		{"geo:56.838011,60.597465;u=35", 56.838011, 60.597465, true},
-		{"geo:56.838011,60.597465?q=точка", 56.838011, 60.597465, true},
-		{"GEO:56.838011,60.597465", 56.838011, 60.597465, true},
-		{"https://example.com", 0, 0, false},
-		{"geo:broken", 0, 0, false},
-		{"geo:956.8,60.5", 0, 0, false},
+		{name: "plain", uri: "geo:56.838011,60.597465", wantLat: 56.838011, wantLon: 60.597465, wantOK: true},
+		{name: "short", uri: "geo:56.83,60.59", wantLat: 56.83, wantLon: 60.59, wantOK: true},
+		{name: "uncertainty", uri: "geo:56.838011,60.597465;u=35", wantLat: 56.838011, wantLon: 60.597465, wantOK: true},
+		{name: "query", uri: "geo:56.838011,60.597465?q=точка", wantLat: 56.838011, wantLon: 60.597465, wantOK: true},
+		{name: "uppercase scheme", uri: "GEO:56.838011,60.597465", wantLat: 56.838011, wantLon: 60.597465, wantOK: true},
+		{name: "other scheme", uri: "https://example.com"},
+		{name: "not a pair", uri: "geo:broken"},
+		{name: "latitude out of range", uri: "geo:956.8,60.5"},
 	}
 
 	for _, tt := range tests {
-		lat, lon, ok := ParseURI(tt.uri)
-		if ok != tt.want {
-			t.Errorf("ParseURI(%q) ok = %v, want %v", tt.uri, ok, tt.want)
-			continue
-		}
-		if ok && (!near(lat, tt.lat) || !near(lon, tt.lon)) {
-			t.Errorf("ParseURI(%q) = (%v, %v), want (%v, %v)", tt.uri, lat, lon, tt.lat, tt.lon)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			lat, lon, ok := ParseURI(tt.uri)
+			if ok != tt.wantOK {
+				t.Fatalf("ParseURI(%q) ok = %v, want %v", tt.uri, ok, tt.wantOK)
+			}
+			if ok && (!near(lat, tt.wantLat) || !near(lon, tt.wantLon)) {
+				t.Errorf("ParseURI(%q) = (%v, %v), want (%v, %v)", tt.uri, lat, lon, tt.wantLat, tt.wantLon)
+			}
+		})
 	}
 }

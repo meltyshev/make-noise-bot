@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
+	"strings"
 
 	"github.com/meltyshev/make-noise-bot/internal/game"
 )
@@ -69,15 +69,17 @@ func levelTask(snap game.Snapshot) string {
 		return ""
 	}
 
-	digest := sha256.New()
-	io.WriteString(digest, snap.Question())
+	var text strings.Builder
+	text.WriteString(snap.Question())
 	for _, sector := range snap.Sectors() {
-		io.WriteString(digest, "\x00"+sector.Name)
+		text.WriteString("\x00" + sector.Name)
 		for _, code := range sector.Codes {
-			fmt.Fprintf(digest, "|%d:%s", code.Number, code.Hazard)
+			fmt.Fprintf(&text, "|%d:%s", code.Number, code.Hazard)
 		}
 	}
-	return hex.EncodeToString(digest.Sum(nil))[:16]
+
+	digest := sha256.Sum256([]byte(text.String()))
+	return hex.EncodeToString(digest[:])[:16]
 }
 
 func spoilerText(spoilers []game.Spoiler, number int) string {

@@ -51,10 +51,7 @@ func Generate(background, foreground, nickname string) ([]byte, error) {
 		return nil, errors.New("nickname has no drawable glyphs")
 	}
 
-	fontSize := int(imageSize * fitRatio / float64(baseWidth) * imageSize)
-	if fontSize < 1 {
-		fontSize = 1
-	}
+	fontSize := max(int(imageSize*fitRatio/float64(baseWidth)*imageSize), 1)
 
 	face, err := opentype.NewFace(ft, &opentype.FaceOptions{Size: float64(fontSize), DPI: 72, Hinting: font.HintingFull})
 	if err != nil {

@@ -151,18 +151,21 @@ func TestLinkedTextStaysBalanced(t *testing.T) {
 
 func TestConvertDropsUnsupportedSchemes(t *testing.T) {
 	tests := []struct {
+		name     string
 		fragment string
 		want     string
 	}{
-		{`<a href="javascript:alert(1)">клик</a>`, "клик"},
-		{`<a href="tel:+79001234567">звонок</a>`, "звонок"},
-		{`<a href="geo:56.8,60.5">точка</a>`, `<a href="geo:56.8,60.5">точка</a>`},
-		{`<a href="/level">уровень</a>`, `<a href="https://example.com/level">уровень</a>`},
+		{name: "javascript", fragment: `<a href="javascript:alert(1)">клик</a>`, want: "клик"},
+		{name: "tel", fragment: `<a href="tel:+79001234567">звонок</a>`, want: "звонок"},
+		{name: "geo stays", fragment: `<a href="geo:56.8,60.5">точка</a>`, want: `<a href="geo:56.8,60.5">точка</a>`},
+		{name: "relative becomes absolute", fragment: `<a href="/level">уровень</a>`, want: `<a href="https://example.com/level">уровень</a>`},
 	}
 
 	for _, tt := range tests {
-		if got := Convert(tt.fragment, "https://example.com"); got != tt.want {
-			t.Errorf("Convert(%q) = %q, want %q", tt.fragment, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Convert(tt.fragment, "https://example.com"); got != tt.want {
+				t.Errorf("Convert(%q) = %q, want %q", tt.fragment, got, tt.want)
+			}
+		})
 	}
 }

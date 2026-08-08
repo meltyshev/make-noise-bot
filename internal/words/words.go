@@ -9,7 +9,6 @@ import (
 	"embed"
 	"regexp"
 	"slices"
-	"sort"
 	"strings"
 	"sync"
 	"unicode"
@@ -107,7 +106,7 @@ func Anagrams(letters string) (matches []string, ok bool) {
 	d.load()
 
 	matches = append(matches, d.anagrams[anagramKey(letters)]...)
-	sort.Strings(matches)
+	slices.Sort(matches)
 	return matches, true
 }
 

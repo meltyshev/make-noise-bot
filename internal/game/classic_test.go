@@ -1,7 +1,6 @@
 package game
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -28,23 +27,6 @@ const classicPayload = `jQuery163({"level": {` +
 	`"spoilers": [{"spoilerSolved": 1, "spoilerNumber": "2"}, {"spoilerSolved": 0, "spoilerNumber": "3"}]` +
 	`}, null:{"x": 1}})`
 
-func testEnv(srv *httptest.Server) *Env {
-	env := DefaultEnv()
-	env.ClassicBaseURL = srv.URL
-	env.LiteBaseURL = srv.URL
-	return env
-}
-
-func classicGame() store.Game {
-	return store.Game{
-		Engine:   NameClassic,
-		City:     "e-burg",
-		Login:    "team",
-		Password: "secret",
-		Session:  "sess-1",
-	}
-}
-
 func TestClassicLoadAndSnapshot(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/e-burg/go/" || r.URL.Query().Get("api") != "true" {
@@ -60,7 +42,7 @@ func TestClassicLoadAndSnapshot(t *testing.T) {
 	defer srv.Close()
 
 	engine := newClassic(classicGame(), testEnv(srv))
-	snap, err := engine.Load(context.Background())
+	snap, err := engine.Load(t.Context())
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -135,7 +117,7 @@ func TestClassicEnterCode(t *testing.T) {
 	defer srv.Close()
 
 	engine := newClassic(classicGame(), testEnv(srv))
-	result := engine.EnterCode(context.Background(), "др12", nil)
+	result := engine.EnterCode(t.Context(), "др12", nil)
 
 	if !result.Accepted || result.StatusCode != 8 {
 		t.Fatalf("result = %+v, want accepted status 8", result)
@@ -164,7 +146,7 @@ func TestClassicSpoilerCodeGoesThroughTheUsualForm(t *testing.T) {
 	defer srv.Close()
 
 	engine := newClassic(classicGame(), testEnv(srv))
-	result := engine.EnterSpoilerCode(context.Background(), "криптекс")
+	result := engine.EnterSpoilerCode(t.Context(), "криптекс")
 	if !result.Accepted || result.StatusCode != 55 {
 		t.Fatalf("result = %+v, want accepted status 55", result)
 	}
@@ -183,7 +165,7 @@ func TestClassicEnterCodePinnedLevel(t *testing.T) {
 
 	engine := newClassic(classicGame(), testEnv(srv))
 	pinned := 7
-	result := engine.EnterCode(context.Background(), "dr1", &pinned)
+	result := engine.EnterCode(t.Context(), "dr1", &pinned)
 	if result.Accepted || result.StatusCode != 11 {
 		t.Fatalf("result = %+v, want rejected status 11", result)
 	}
@@ -216,7 +198,7 @@ func TestClassicReloginOnDeadSession(t *testing.T) {
 	env.OnSessionUpdate = func(session string) { updatedSession = session }
 
 	engine := newClassic(classicGame(), env)
-	snap, err := engine.Load(context.Background())
+	snap, err := engine.Load(t.Context())
 	if err != nil {
 		t.Fatalf("Load after relogin: %v", err)
 	}
@@ -241,7 +223,7 @@ func TestClassicStart(t *testing.T) {
 	cfg.Login = "team"
 	cfg.Password = "secret"
 
-	g, err := Start(context.Background(), cfg, testEnv(srv))
+	g, err := Start(t.Context(), cfg, testEnv(srv))
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}

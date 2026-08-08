@@ -67,9 +67,9 @@ func parseCodeFormats(input string) ([][]string, bool) {
 	}
 
 	var formats [][]string
-	for _, rawGroup := range strings.Split(input, ",") {
+	for rawGroup := range strings.SplitSeq(input, ",") {
 		var group []string
-		for _, rawVariant := range strings.Split(rawGroup, "=") {
+		for rawVariant := range strings.SplitSeq(rawGroup, "=") {
 			variant := strings.ToLower(strings.TrimSpace(rawVariant))
 			if variant == "" || strings.ContainsFunc(variant, unicode.IsDigit) {
 				return nil, false

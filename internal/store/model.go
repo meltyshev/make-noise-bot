@@ -1,6 +1,9 @@
 package store
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 type Permission string
 
@@ -55,8 +58,8 @@ func OnlyEvents(chatID int64) Subscription {
 
 type Subscriptions []Subscription
 
-func (list Subscriptions) Find(chatID int64) (Subscription, bool) {
-	for _, sub := range list {
+func (s Subscriptions) Find(chatID int64) (Subscription, bool) {
+	for _, sub := range s {
 		if sub.ChatID == chatID {
 			return sub, true
 		}
@@ -64,27 +67,27 @@ func (list Subscriptions) Find(chatID int64) (Subscription, bool) {
 	return Subscription{ChatID: chatID}, false
 }
 
-func (list Subscriptions) Set(sub Subscription) Subscriptions {
-	for i, item := range list {
+func (s Subscriptions) Set(sub Subscription) Subscriptions {
+	for i, item := range s {
 		if item.ChatID == sub.ChatID {
-			list[i] = sub
-			return list
+			s[i] = sub
+			return s
 		}
 	}
-	return append(list, sub)
+	return append(s, sub)
 }
 
-func (list Subscriptions) Remove(chatID int64) Subscriptions {
-	for i, item := range list {
+func (s Subscriptions) Remove(chatID int64) Subscriptions {
+	for i, item := range s {
 		if item.ChatID == chatID {
-			return append(list[:i], list[i+1:]...)
+			return append(s[:i], s[i+1:]...)
 		}
 	}
-	return list
+	return s
 }
 
-func (list Subscriptions) Clone() Subscriptions {
-	return append(Subscriptions{}, list...)
+func (s Subscriptions) Clone() Subscriptions {
+	return append(Subscriptions{}, s...)
 }
 
 // GameConfig is the template used to start the next game.
@@ -186,10 +189,5 @@ func (d *Data) DisplayName(id int64) string {
 }
 
 func (d *Data) IsManager(userID int64) bool {
-	for _, id := range d.Managers {
-		if id == userID {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(d.Managers, userID)
 }

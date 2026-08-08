@@ -4,11 +4,12 @@
 package migrations
 
 import (
-	"encoding/json"
+	"cmp"
 	"fmt"
 	"os"
-	"path/filepath"
-	"sort"
+	"slices"
+
+	"github.com/meltyshev/make-noise-bot/internal/jsonfile"
 )
 
 type migration struct {
@@ -39,21 +40,17 @@ func Current() int {
 // the migrations it ran. A state that does not exist yet is stamped with the
 // current version, so later migrations skip it.
 func Apply(path string) ([]string, error) {
-	raw, err := os.ReadFile(path)
+	var state map[string]any
+	err := jsonfile.Read(path, &state)
 	if os.IsNotExist(err) {
-		return nil, write(path, map[string]any{"schema_version": Current()})
+		return nil, jsonfile.Write(path, map[string]any{"schema_version": Current()})
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read state: %w", err)
+		return nil, err
 	}
 
-	var state map[string]any
-	if err := json.Unmarshal(raw, &state); err != nil {
-		return nil, fmt.Errorf("parse state %s: %w", path, err)
-	}
-
-	pending := append([]migration{}, all...)
-	sort.Slice(pending, func(i, j int) bool { return pending[i].version < pending[j].version })
+	pending := slices.Clone(all)
+	slices.SortFunc(pending, func(a, b migration) int { return cmp.Compare(a.version, b.version) })
 
 	current := schemaVersion(state)
 	var applied []string
@@ -71,7 +68,7 @@ func Apply(path string) ([]string, error) {
 		return nil, nil
 	}
 
-	if err := write(path, state); err != nil {
+	if err := jsonfile.Write(path, state); err != nil {
 		return nil, err
 	}
 	return applied, nil
@@ -83,32 +80,6 @@ func schemaVersion(state map[string]any) int {
 		return 0
 	}
 	return int(version)
-}
-
-func write(path string, state map[string]any) error {
-	raw, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal state: %w", err)
-	}
-	raw = append(raw, '\n')
-
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".state-*.json")
-	if err != nil {
-		return fmt.Errorf("write state: %w", err)
-	}
-	defer os.Remove(tmp.Name())
-
-	if _, err := tmp.Write(raw); err != nil {
-		tmp.Close()
-		return fmt.Errorf("write state: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("write state: %w", err)
-	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
-		return fmt.Errorf("write state: %w", err)
-	}
-	return nil
 }
 
 // object returns a nested JSON object for editing in place.

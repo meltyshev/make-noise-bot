@@ -78,7 +78,7 @@ func TestGameReturnsCopies(t *testing.T) {
 
 	fresh, _ := s.Game()
 	if fresh.Subscriptions[0].ChatID != 1 || fresh.Engine != "DozorLite" {
-		t.Error("Game() must return an independent copy")
+		t.Errorf("Game() = %+v after mutating the copy %+v, want the stored game", fresh, game)
 	}
 }
 

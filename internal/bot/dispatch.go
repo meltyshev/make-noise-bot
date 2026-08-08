@@ -30,10 +30,17 @@ func (a *App) onUpdate(ctx context.Context, _ *tgbot.Bot, update *models.Update)
 	c := &Ctx{ctx: ctx, app: a, msg: msg}
 	text := msg.Text
 
+	var name, args string
+	isCommand := strings.HasPrefix(text, "/") && len(text) > 1
+	if isCommand {
+		name, args = splitCommand(text)
+		name = a.stripBotMention(name)
+	}
+
 	// Until an admin is configured, the first /start in a private chat
 	// claims the role.
 	if a.adminID() == 0 {
-		if msg.From != nil && msg.Chat.Type == models.ChatTypePrivate && a.stripBotMention(commandName(text)) == "start" {
+		if name == "start" && msg.From != nil && msg.Chat.Type == models.ChatTypePrivate {
 			if err := a.claimAdmin(msg.From.ID); err != nil {
 				a.reportError(fmt.Errorf("claim admin: %w", err))
 				return
@@ -44,11 +51,9 @@ func (a *App) onUpdate(ctx context.Context, _ *tgbot.Bot, update *models.Update)
 	}
 
 	// Unknown commands are swallowed so they are never submitted as codes.
-	if strings.HasPrefix(text, "/") && len(text) > 1 {
-		name, args := splitCommand(text)
-		name = a.stripBotMention(name)
-
+	if isCommand {
 		if cmd, ok := a.commands[name]; ok {
+			c.cmd = name
 			cmd.Init(c, args)
 		}
 		return
@@ -58,8 +63,9 @@ func (a *App) onUpdate(ctx context.Context, _ *tgbot.Bot, update *models.Update)
 		return
 	}
 
-	if conv, ok := c.Conv(); ok {
+	if conv, ok := c.conv(); ok {
 		if cmd, found := a.commands[conv.Name]; found && cmd.Handle != nil {
+			c.cmd = conv.Name
 			cmd.Handle(c, conv.State)
 			return
 		}
@@ -101,13 +107,5 @@ func (a *App) stripBotMention(name string) string {
 	if idx := strings.LastIndex(name, "@"); idx >= 0 && strings.EqualFold(name[idx+1:], a.me.Username) {
 		return name[:idx]
 	}
-	return name
-}
-
-func commandName(text string) string {
-	if !strings.HasPrefix(text, "/") || len(text) < 2 {
-		return ""
-	}
-	name, _ := splitCommand(text)
 	return name
 }

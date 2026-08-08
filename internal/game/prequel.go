@@ -163,7 +163,7 @@ type prequelSnapshot struct {
 }
 
 // Prequels have a single code board and no levels.
-func (s *prequelSnapshot) LevelNumber() *int        { return intPtr(0) }
+func (s *prequelSnapshot) LevelNumber() *int        { return new(0) }
 func (s *prequelSnapshot) TimeOnLevel() (int, bool) { return 0, false }
 func (s *prequelSnapshot) Progress() string         { return "" }
 func (s *prequelSnapshot) Question() string         { return "" }
@@ -186,7 +186,7 @@ func (s *prequelSnapshot) Sectors() []Sector {
 		}
 
 		var codes []SectorCode
-		for _, rawCode := range strings.Split(row[idx+2:], ", ") {
+		for rawCode := range strings.SplitSeq(row[idx+2:], ", ") {
 			entered := strings.HasPrefix(rawCode, "<")
 			hazard := rawCode
 			if entered {

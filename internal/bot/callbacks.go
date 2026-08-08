@@ -1,16 +1,23 @@
 package bot
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
 	tgbot "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
+	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
+
+// render builds a menu from one consistent view of the state.
+type render func(d *store.Data) (string, [][]models.InlineKeyboardButton)
 
 // cb is the context of one inline button click.
 type cb struct {
@@ -90,6 +97,27 @@ func (c *cb) edit(text string, keyboard [][]models.InlineKeyboardButton) {
 	c.app.editMessage(c.ctx, c.chatID, c.msgID, text, keyboard)
 }
 
+// show redraws the menu message the click came from.
+func (c *cb) show(r render) {
+	c.edit(c.app.renderMenu(r))
+}
+
+func (a *App) renderMenu(r render) (string, [][]models.InlineKeyboardButton) {
+	var (
+		text     string
+		keyboard [][]models.InlineKeyboardButton
+	)
+	a.store.View(func(d *store.Data) { text, keyboard = r(d) })
+	return text, keyboard
+}
+
+// editMenu redraws a menu message the current update did not come from, which
+// is how a conversation reply refreshes the menu that started it.
+func (a *App) editMenu(ctx context.Context, chatID int64, msgID int, r render) {
+	text, keyboard := a.renderMenu(r)
+	a.editMessage(ctx, chatID, msgID, text, keyboard)
+}
+
 func (a *App) editMessage(ctx context.Context, chatID int64, msgID int, text string, keyboard [][]models.InlineKeyboardButton) {
 	params := &tgbot.EditMessageTextParams{ChatID: chatID, MessageID: msgID, Text: text}
 	if keyboard != nil {
@@ -142,10 +170,23 @@ func btnRow(buttons ...models.InlineKeyboardButton) []models.InlineKeyboardButto
 }
 
 func truncateLabel(label string) string {
-	const max = 48
+	const maxRunes = 48
 	runes := []rune(label)
-	if len(runes) <= max {
+	if len(runes) <= maxRunes {
 		return label
 	}
-	return string(runes[:max-3]) + "..."
+	return string(runes[:maxRunes-3]) + "..."
+}
+
+// sortByName orders the ids of a menu list the way they are labelled, so the
+// buttons do not jump around between renders.
+func sortByName(d *store.Data, ids map[int64]bool) []int64 {
+	sorted := slices.Collect(maps.Keys(ids))
+	slices.SortFunc(sorted, func(a, b int64) int {
+		if n := strings.Compare(d.DisplayName(a), d.DisplayName(b)); n != 0 {
+			return n
+		}
+		return cmp.Compare(a, b)
+	})
+	return sorted
 }

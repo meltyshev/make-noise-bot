@@ -58,7 +58,7 @@ func (u *Updater) Run(ctx context.Context) {
 func (u *Updater) tick(ctx context.Context) {
 	defer func() {
 		if r := recover(); r != nil {
-			u.report(fmt.Errorf("updater panic: %v\n%s", r, debug.Stack()))
+			u.report(fmt.Errorf("panic: %v\n%s", r, debug.Stack()))
 		}
 	}()
 

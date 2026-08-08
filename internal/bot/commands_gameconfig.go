@@ -1,8 +1,6 @@
 package bot
 
 import (
-	"github.com/go-telegram/bot/models"
-
 	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/texts"
 )
@@ -16,12 +14,7 @@ func cmdGameConfig() *Command {
 			if !c.IsManager() || !c.EnsurePrivate() {
 				return
 			}
-			var (
-				text     string
-				keyboard [][]models.InlineKeyboardButton
-			)
-			c.app.store.View(func(d *store.Data) { text, keyboard = renderGameConfigMenu(d) })
-			c.ReplyInline(text, keyboard)
+			c.ReplyMenu(renderGameConfigMenu)
 		},
 		Handle: func(c *Ctx, state any) {
 			field, ok := state.(gcField)
@@ -57,13 +50,7 @@ func cmdGameConfig() *Command {
 			}
 
 			c.DelConv()
-
-			var (
-				text     string
-				keyboard [][]models.InlineKeyboardButton
-			)
-			c.app.store.View(func(d *store.Data) { text, keyboard = renderGameConfigMenu(d) })
-			c.app.editMessage(c.ctx, field.ChatID, field.MsgID, text, keyboard)
+			c.app.editMenu(c.ctx, field.ChatID, field.MsgID, renderGameConfigMenu)
 		},
 	}
 }

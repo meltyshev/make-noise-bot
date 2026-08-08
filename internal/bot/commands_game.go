@@ -3,6 +3,7 @@ package bot
 import (
 	"fmt"
 	"html"
+	"strconv"
 	"strings"
 
 	"github.com/go-telegram/bot/models"
@@ -57,14 +58,9 @@ func cmdSubscribe() *Command {
 				return
 			}
 
-			var (
-				text     string
-				keyboard [][]models.InlineKeyboardButton
-			)
-			c.app.store.View(func(d *store.Data) {
-				text, keyboard = renderSubscriptionDetail(d, true, c.ChatID(), true)
+			c.ReplyMenu(func(d *store.Data) (string, [][]models.InlineKeyboardButton) {
+				return renderSubscriptionDetail(d, true, c.ChatID(), true)
 			})
-			c.ReplyInline(text, keyboard)
 		},
 	}
 }
@@ -74,7 +70,7 @@ func cmdQuestion() *Command {
 		Name:        "question",
 		Description: texts.DescQuestion,
 		Init: func(c *Ctx, _ string) {
-			if !c.EnsureAllowed("question") {
+			if !c.EnsureAllowed() {
 				return
 			}
 
@@ -103,7 +99,7 @@ func cmdLink() *Command {
 		Name:        "link",
 		Description: texts.DescLink,
 		Init: func(c *Ctx, _ string) {
-			if !c.EnsureAllowed("link") {
+			if !c.EnsureAllowed() {
 				return
 			}
 			if engine := c.app.Engine(); engine != nil {
@@ -150,7 +146,7 @@ func cmdBruteForce() *Command {
 	return &Command{
 		Name: "bruteforce",
 		Init: func(c *Ctx, _ string) {
-			if !c.EnsureAllowed("bruteforce") {
+			if !c.EnsureAllowed() {
 				return
 			}
 			if c.ChatType() != string(models.ChatTypePrivate) && !c.IsManager() {
@@ -180,7 +176,8 @@ func cmdBruteForce() *Command {
 
 func cmdPinLevel() *Command {
 	apply := func(c *Ctx, input string) {
-		if input == "" || !isDigits(input) {
+		level, err := strconv.Atoi(input)
+		if err != nil || level < 0 {
 			c.Reply(texts.PinLevelRequired)
 			return
 		}
@@ -189,8 +186,6 @@ func cmdPinLevel() *Command {
 			return
 		}
 
-		level := 0
-		fmt.Sscanf(input, "%d", &level)
 		if err := c.app.store.UpdateGame(func(g *store.Game) { g.PinnedLevel = &level }); err != nil {
 			c.app.reportError(err)
 			return
@@ -278,13 +273,4 @@ func cmdClearRating() *Command {
 			c.Reply(texts.RatingCleared)
 		},
 	}
-}
-
-func isDigits(s string) bool {
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return s != ""
 }
