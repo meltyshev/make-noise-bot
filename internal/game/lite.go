@@ -13,6 +13,8 @@ import (
 	"strings"
 	"unicode"
 
+	xhtml "golang.org/x/net/html"
+
 	"github.com/meltyshev/make-noise-bot/internal/htmltext"
 	"github.com/meltyshev/make-noise-bot/internal/store"
 	"github.com/meltyshev/make-noise-bot/internal/texts"
@@ -28,10 +30,10 @@ var (
 	liteTimeRe        = regexp.MustCompile(`<!--timeOnLevelBegin (\d+) timeOnLevelEnd-->`)
 	liteHintsRe       = regexp.MustCompile(`(?s)<!--LevelClue(\d)Text-->(.*?)<!--LevelClue\dTextEnd-->`)
 
-	// Spoilers live between the level text and the code counts, either as an
-	// open block or as a line offering the form to unlock them.
+	// Spoilers live between the level text and the code counts. Both open
+	// and closed spoilers can use the same wrapper; older closed ones do not.
 	liteSpoilerAreaRe   = regexp.MustCompile(`(?s)<!--levelTextEnd-->(.*?)(?:<!--bonusCodeCount|<!--mainCodeCount|<!--difficultyCods|<div class='dcodes'|<p>Введите код)`)
-	liteSpoilerOpenRe   = regexp.MustCompile(`<div class=['"]?spoiler['"]?[^>]*>`)
+	liteSpoilerBlockRe  = regexp.MustCompile(`<div class=['"]?spoiler['"]?[^>]*>`)
 	liteSpoilerTitleRe  = regexp.MustCompile(`(?is)<div class=['"]?title['"]?[^>]*>\s*Спойлер\s*(?:№\s*)?(\d*)[^<]*</div>`)
 	liteSpoilerClosedRe = regexp.MustCompile(`(?i)спойлер\s*№\s*(\d+)`)
 )
@@ -321,8 +323,8 @@ func (s *liteSnapshot) Hint() (int, string, bool) {
 	return number, htmltext.Convert(last[2], s.link), true
 }
 
-// Spoilers reads both forms and numbers them by their order on the page,
-// since only the closed ones name their number.
+// Spoilers reads both forms, using page order when an open block's title
+// omits its number.
 func (s *liteSnapshot) Spoilers() []Spoiler {
 	area := liteSpoilerAreaRe.FindStringSubmatch(s.data)
 	if area == nil {
@@ -341,7 +343,7 @@ func (s *liteSnapshot) Spoilers() []Spoiler {
 		blocks  [][2]int
 	)
 
-	for _, marker := range liteSpoilerOpenRe.FindAllStringIndex(region, -1) {
+	for _, marker := range liteSpoilerBlockRe.FindAllStringIndex(region, -1) {
 		if insideAny(blocks, marker[0]) {
 			continue
 		}
@@ -355,12 +357,12 @@ func (s *liteSnapshot) Spoilers() []Spoiler {
 			}
 			body = body[title[1]:]
 		}
-		entries = append(entries, entry{
-			at:     marker[0],
-			number: number,
-			open:   true,
-			text:   htmltext.Convert(body, s.link),
-		})
+		item := entry{at: marker[0], number: number}
+		if !liteSpoilerHasCodeInput(body) {
+			item.open = true
+			item.text = htmltext.Convert(body, s.link)
+		}
+		entries = append(entries, item)
 	}
 
 	for _, closed := range liteSpoilerClosedRe.FindAllStringSubmatchIndex(region, -1) {
@@ -386,8 +388,30 @@ func (s *liteSnapshot) Spoilers() []Spoiler {
 	return spoilers
 }
 
-// insideAny reports whether a position falls into an open spoiler, where a
-// mention of a spoiler number belongs to its text.
+// liteSpoilerHasCodeInput finds the unlock field, which disappears once
+// the spoiler opens.
+func liteSpoilerHasCodeInput(body string) bool {
+	z := xhtml.NewTokenizer(strings.NewReader(body))
+	for {
+		switch z.Next() {
+		case xhtml.ErrorToken:
+			return false
+		case xhtml.StartTagToken, xhtml.SelfClosingTagToken:
+			tok := z.Token()
+			if tok.Data != "input" {
+				continue
+			}
+			for _, attr := range tok.Attr {
+				if attr.Key == "name" && attr.Val == "spoilerCode" {
+					return true
+				}
+			}
+		}
+	}
+}
+
+// insideAny prevents a block's title or text from being counted again as
+// a separate closed spoiler.
 func insideAny(blocks [][2]int, at int) bool {
 	for _, block := range blocks {
 		if at >= block[0] && at < block[1] {

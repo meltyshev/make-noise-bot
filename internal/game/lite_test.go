@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -108,6 +109,18 @@ const (
 
 	// A level with no spoiler at all: the area between the markers is empty.
 	liteNoSpoilers = `<!--levelTextEnd--><!--bonusCodeCount 1--><!--mainCodeCount 6-->`
+
+	// Closed and open blocks share the same class and title; the unlock
+	// field is present only while the spoiler is closed.
+	liteClosedSpoilerBlock = `<div class="spoiler"><div class="title">Спойлер №1</div>` +
+		`<p>Чтобы открыть спойлер, введите специальный код.</p><form method="post" data-ajax="false">` +
+		`<input type="hidden" name="action" value="spoilerCode"><input type="hidden" name="pin" value="pin-1">` +
+		`<input type="hidden" name="nomessage" value=""><input type="text" name="spoilerCode">` +
+		`<input type="submit" value="Открыть спойлер"></form></div>`
+	liteOpenSpoilerBlock = `<div class="spoiler"><div class="title">Спойлер №1</div>` +
+		`<p>55.058638, 82.974920</p>` + "\n" +
+		`<p><img src="../../uploaded/x.png" alt="" /></p>` + "\n" +
+		`<p><img src="../../uploaded/y.jpg" alt="" /></p></div>`
 )
 
 // TestHintReportsAbsence pins the bool that replaced the 0/"" sentinel: every
@@ -180,6 +193,43 @@ func TestLiteSpoilersMixed(t *testing.T) {
 	}
 	if spoilers[1].Open || spoilers[1].Number != 2 {
 		t.Errorf("second spoiler = %+v, want closed number 2", spoilers[1])
+	}
+}
+
+func TestLiteSpoilerBlocks(t *testing.T) {
+	open := Spoiler{
+		Number: 1,
+		Open:   true,
+		Text: "55.058638, 82.974920\n\n" +
+			"https://lite.dzzzr.ru/uploaded/x.png\n\n" +
+			"https://lite.dzzzr.ru/uploaded/y.jpg",
+	}
+	tests := []struct {
+		name string
+		body string
+		want []Spoiler
+	}{
+		{name: "closed block", body: liteClosedSpoilerBlock, want: []Spoiler{{Number: 1}}},
+		{name: "closed block with unquoted attributes", body: strings.ReplaceAll(liteClosedSpoilerBlock, `"`, ""), want: []Spoiler{{Number: 1}}},
+		{name: "closed block with single quoted attributes", body: strings.ReplaceAll(liteClosedSpoilerBlock, `"`, "'"), want: []Spoiler{{Number: 1}}},
+		{name: "open block", body: liteOpenSpoilerBlock, want: []Spoiler{open}},
+		{
+			name: "open block and closed second block",
+			body: liteOpenSpoilerBlock + strings.ReplaceAll(liteClosedSpoilerBlock, "№1", "№2"),
+			want: []Spoiler{open, {Number: 2}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			snap := &liteSnapshot{
+				link: "https://lite.dzzzr.ru/e-burg/go/",
+				data: "<!--levelTextEnd-->" + tt.body + "<!--bonusCodeCount 0-->",
+			}
+			got := snap.Spoilers()
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("Spoilers() = %+v, want %+v", got, tt.want)
+			}
+		})
 	}
 }
 
